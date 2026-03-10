@@ -1,0 +1,91 @@
+{
+  "projectType": "saas",
+  "projectName": "i18n Doctor",
+  "projectDescription": "Scan and fix broken translations in any GitHub repository with one-click automation",
+  "theme": "palm",
+  "primaryColor": "#7c7c7c",
+  "lightColor": "#101010",
+  "darkColor": "#c5c5c5",
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Documentation",
+        "groups": [
+          {
+            "group": "Get Started",
+            "pages": [
+              "introduction",
+              "quickstart"
+            ]
+          },
+          {
+            "group": "Core Features",
+            "pages": [
+              "features/scanning",
+              "features/health-reports",
+              "features/one-click-fix",
+              "features/shareable-reports"
+            ]
+          },
+          {
+            "group": "Guides",
+            "pages": [
+              "guides/understanding-reports",
+              "guides/supported-formats",
+              "guides/lingo-integration",
+              "guides/github-oauth"
+            ]
+          },
+          {
+            "group": "Architecture",
+            "pages": [
+              "architecture/overview",
+              "architecture/monorepo-structure",
+              "architecture/tech-stack"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "API Reference",
+        "groups": [
+          {
+            "group": "Endpoints",
+            "pages": [
+              "api/scan"
+            ]
+          },
+          {
+            "group": "Core Modules",
+            "pages": [
+              "api/github",
+              "api/locale-detector",
+              "api/locale-parser",
+              "api/diff-engine"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Auto-detect locale files in any public GitHub repository",
+    "Generate localization health reports with coverage stats",
+    "Identify missing, untranslated, and orphan translation keys",
+    "One-click fix with Lingo.dev integration",
+    "Shareable report URLs with social preview cards",
+    "Support for JSON, YAML, and .po translation files",
+    "Visual dashboard with per-locale breakdowns",
+    "GitHub OAuth authentication for private repos"
+  ],
+  "publicApiSurface": [
+    "POST /api/scan - Scan a GitHub repository for translation issues",
+    "parseRepoUrl(input) - Parse GitHub URLs or owner/repo strings",
+    "getRepoInfo(owner, repo) - Fetch repository metadata",
+    "getRepoTree(owner, repo, branch) - Get full file tree",
+    "getFileContent(owner, repo, branch, path) - Fetch raw file content",
+    "detectLocaleFiles(tree) - Auto-detect translation files",
+    "parseLocaleFile(content, path) - Parse locale files to key maps",
+    "generateReport(sourceLocale, keyMaps) - Generate health report"
+  ]
+}
