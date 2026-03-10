@@ -1,0 +1,208 @@
+---
+title: 'Profile'
+description: 'View your account information and connected GitHub profile'
+---
+
+The Profile page displays your account information and GitHub profile details after signing in with GitHub OAuth.
+
+## Accessing Your Profile
+
+Sign in with GitHub to access your profile at:
+
+```
+https://i18n.doctor/profile
+```
+
+<Note>
+You must be authenticated to view the Profile page. Sign in using the **Sign in with GitHub** button in the top-right corner.
+</Note>
+
+## Profile Information
+
+Your profile displays:
+
+<CardGroup cols={2}>
+  <Card title="GitHub Avatar" icon="image">
+    Your GitHub profile picture pulled from your account metadata
+  </Card>
+  <Card title="Account Details" icon="user">
+    Username, full name, email, provider, and member since date
+  </Card>
+</CardGroup>
+
+## Profile Layout
+
+The Profile page shows:
+
+### Avatar and Name Section
+
+- **Profile picture** - 64×64px circular avatar from GitHub
+- **Full name** - Your display name from GitHub (if set)
+- **Username** - Your GitHub handle with `@` prefix
+
+### Account Information
+
+| Field | Description |
+|-------|-------------|
+| **Email** | Primary email address from your GitHub account |
+| **Provider** | Authentication provider (always "github" for GitHub OAuth) |
+| **Member since** | Account creation date formatted as "Month Day, Year" |
+
+## Data Source
+
+Profile information is pulled from your GitHub OAuth user metadata:
+
+```typescript
+interface UserMetadata {
+  avatar_url: string      // Profile picture URL
+  user_name: string       // GitHub username
+  full_name?: string      // Display name (optional)
+  email: string           // Primary email
+}
+```
+
+The component fetches this data using:
+
+```typescript
+const { data } = await supabase.auth.getUser()
+const user = data.user
+const metadata = user.user_metadata
+```
+
+## Privacy and Security
+
+<Accordion title="What data is stored">
+i18n Doctor stores minimal profile information:
+
+- **User ID** - UUID from Supabase Auth
+- **Email** - Your GitHub primary email
+- **Provider** - OAuth provider name ("github")
+- **Metadata** - GitHub username, avatar URL, display name
+- **Created timestamp** - Account creation date
+
+No sensitive data like OAuth tokens or GitHub permissions are visible on the Profile page.
+</Accordion>
+
+<Accordion title="Who can see your profile">
+Your profile information is:
+
+- **Private** - Only you can view your profile page
+- **Not shared** - Not visible to other users or on public pages
+- **Session-protected** - Requires active authentication to access
+
+The Leaderboard and public reports do not display your profile information.
+</Accordion>
+
+## Signing Out
+
+To sign out:
+
+1. Click the profile avatar in the top-right corner
+2. Select **Sign out** from the dropdown menu
+3. You'll be redirected to the home page
+
+<Warning>
+Signing out clears your session but does not delete your account or saved reports. Your data persists in Supabase.
+</Warning>
+
+## Account Deletion
+
+<Note>
+**Planned Feature**: Account deletion is currently in development and will be available in a future release.
+</Note>
+
+In the future, you'll be able to:
+- Delete your account and all associated data
+- Export your scan history before deletion
+- Revoke GitHub OAuth access
+
+## Loading States
+
+The Profile page shows:
+
+- **Loading spinner** - While fetching user data from Supabase
+- **Redirect** - If not authenticated, you'll be prompted to sign in
+- **Error state** - If authentication fails or session expires
+
+## Technical Implementation
+
+The Profile page is a client-side React component:
+
+```typescript
+const [user, setUser] = useState<User | null>(null)
+const supabase = createClient()
+
+useEffect(() => {
+  supabase.auth.getUser().then(({ data }) => {
+    if (data.user) setUser(data.user)
+  })
+}, [supabase])
+```
+
+### Profile Data Structure
+
+User objects from Supabase Auth include:
+
+```typescript
+interface User {
+  id: string                    // UUID
+  email: string                 // Primary email
+  created_at: string            // ISO timestamp
+  user_metadata: {              // GitHub OAuth data
+    avatar_url: string
+    user_name: string
+    full_name?: string
+  }
+  app_metadata: {
+    provider: string            // "github"
+  }
+}
+```
+
+## Updating Your Profile
+
+Profile information is automatically synced from GitHub:
+
+<Steps>
+  <Step title="Update on GitHub">
+    Change your avatar, name, or email on GitHub.com
+  </Step>
+  <Step title="Sign out">
+    Sign out of i18n Doctor
+  </Step>
+  <Step title="Sign back in">
+    Re-authenticate with GitHub to refresh your metadata
+  </Step>
+</Steps>
+
+<Info>
+Profile updates from GitHub typically appear after signing out and back in. Metadata is refreshed during the OAuth flow.
+</Info>
+
+## Use Cases
+
+<CardGroup cols={2}>
+  <Card title="Verify Account" icon="check">
+    Confirm you're signed in with the correct GitHub account
+  </Card>
+  <Card title="Check Email" icon="envelope">
+    View which email is associated with your i18n Doctor account
+  </Card>
+  <Card title="Member Since" icon="calendar">
+    See when you first created your account
+  </Card>
+  <Card title="Avatar Preview" icon="image">
+    Verify your GitHub profile picture is displaying correctly
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="gauge" href="/features/dashboard">
+    View your saved scan reports and translation history
+  </Card>
+  <Card title="GitHub OAuth" icon="github" href="/guides/github-oauth">
+    Learn how GitHub authentication works and what permissions are required
+  </Card>
+</CardGroup>

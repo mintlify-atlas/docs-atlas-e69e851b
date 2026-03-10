@@ -1,0 +1,223 @@
+---
+title: 'Leaderboard'
+description: 'Benchmark your i18n health against popular open source projects'
+---
+
+The Leaderboard provides a public benchmark dataset comparing translation coverage across popular open source repositories, helping you understand where your project stands in the ecosystem.
+
+## Accessing the Leaderboard
+
+The Leaderboard is publicly accessible at:
+
+```
+https://i18n.doctor/leaderboard
+```
+
+<Info>
+No authentication required. The Leaderboard shows all scanned repositories, aggregated by unique `owner/repo` combination.
+</Info>
+
+## What It Shows
+
+The Leaderboard displays:
+
+<CardGroup cols={3}>
+  <Card title="Repository Rankings" icon="ranking-star">
+    Repositories sorted by average coverage percentage (highest first)
+  </Card>
+  <Card title="Coverage Metrics" icon="chart-line">
+    Visual progress bars and percentage badges for each repository
+  </Card>
+  <Card title="Key Statistics" icon="table">
+    Total keys, locale count, and summary data per repository
+  </Card>
+</CardGroup>
+
+## Leaderboard Table
+
+Each entry shows:
+
+| Column | Description |
+|--------|-------------|
+| **#** | Ranking position (sorted by coverage descending) |
+| **Repository** | `owner/repo` format, linked to full report |
+| **Keys** | Total source keys in the repository |
+| **Locales** | Number of target locales detected |
+| **Coverage** | Progress bar + badge showing average coverage % |
+
+### Color Coding
+
+Coverage badges use the same color scheme as health reports:
+
+- 🟢 **Green (≥90%)** - Excellent coverage
+- 🟠 **Orange (60-89%)** - Needs attention  
+- 🔴 **Red (&lt;60%)** - Critical issues
+
+## Benchmark Repositories
+
+The Leaderboard seeds with these popular open source projects:
+
+<CardGroup cols={2}>
+  <Card title="calcom/cal.com" icon="calendar">
+    Open source Calendly alternative
+  </Card>
+  <Card title="outline/outline" icon="book">
+    Team knowledge base and wiki
+  </Card>
+  <Card title="RocketChat/Rocket.Chat" icon="comments">
+    Open source team chat platform
+  </Card>
+  <Card title="element-hq/element-web" icon="hashtag">
+    Matrix protocol web client
+  </Card>
+  <Card title="appwrite/appwrite" icon="server">
+    Backend as a service platform
+  </Card>
+  <Card title="formbricks/formbricks" icon="clipboard-question">
+    Open source survey platform
+  </Card>
+  <Card title="twentyhq/twenty" icon="table-cells">
+    Open source CRM
+  </Card>
+  <Card title="documenso/documenso" icon="file-signature">
+    Open source DocuSign alternative
+  </Card>
+</CardGroup>
+
+<Tip>
+Click any benchmark repository link to scan it immediately and add it to the leaderboard if not already present.
+</Tip>
+
+## How Rankings Work
+
+The Leaderboard uses this algorithm:
+
+<Steps>
+  <Step title="Fetch all reports">
+    Query the `reports` table for all scanned repositories
+  </Step>
+  <Step title="Deduplicate">
+    Group by `repo_owner/repo_name` (case-insensitive) and keep only the most recent scan for each unique repository
+  </Step>
+  <Step title="Sort by coverage">
+    Order repositories by `avgCoverage` descending (highest coverage first)
+  </Step>
+  <Step title="Assign rank">
+    Display ranking numbers starting from #1
+  </Step>
+</Steps>
+
+## Adding Your Repository
+
+To add your repository to the Leaderboard:
+
+1. Navigate to [i18n.doctor](https://i18n.doctor)
+2. Enter your repository URL in the scan form
+3. Wait for the scan to complete
+4. Your repository will automatically appear on the Leaderboard
+
+<Note>
+The Leaderboard shows the **most recent scan** for each repository. Re-scanning a repository updates its ranking if the coverage changes.
+</Note>
+
+## Empty State
+
+When no repositories have been scanned yet, the Leaderboard displays:
+
+- A message indicating the leaderboard is empty
+- Quick-scan links for all benchmark repositories
+- Instructions to scan repos to populate the board
+
+### Quick Scan Links
+
+Click any benchmark repository name to instantly navigate to its scan page:
+
+```
+https://i18n.doctor/owner/repo
+```
+
+These links use the short URL format that automatically triggers a scan.
+
+## Technical Implementation
+
+The Leaderboard is a client-side React component that:
+
+- Fetches all reports from Supabase `reports` table
+- Performs client-side deduplication by repository
+- Sorts results by coverage percentage
+- Displays a loading spinner while fetching data
+- Shows real-time rankings based on the latest scans
+
+### Data Source
+
+```typescript
+interface LeaderboardEntry {
+  repo_owner: string
+  repo_name: string
+  repo_url: string
+  report: {
+    totalSourceKeys: number
+    summary: {
+      avgCoverage: number
+      totalLocales: number
+      totalMissing: number
+    }
+  }
+  created_at: string
+}
+```
+
+The component queries:
+
+```sql
+SELECT repo_owner, repo_name, repo_url, report, created_at
+FROM reports
+ORDER BY created_at DESC
+```
+
+Then deduplicates in-memory by creating a `Set` of `owner/repo` combinations (case-insensitive).
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Project comparison" icon="scale-balanced">
+    Compare your repository's i18n coverage against similar projects in your domain (e.g., CRM tools, chat platforms).
+  </Accordion>
+  <Accordion title="Best practices research" icon="magnifying-glass">
+    Study high-ranking repositories to understand patterns and strategies for maintaining excellent translation coverage.
+  </Accordion>
+  <Accordion title="OSS contribution" icon="code-pull-request">
+    Identify repositories with low coverage that might benefit from translation contributions.
+  </Accordion>
+  <Accordion title="Hiring and evaluation" icon="briefcase">
+    Use the leaderboard as a proxy metric for i18n maturity when evaluating open source projects for adoption.
+  </Accordion>
+</AccordionGroup>
+
+## Privacy Considerations
+
+<Warning>
+All scanned repositories appear on the public Leaderboard. Only scan public repositories you're comfortable exposing.
+</Warning>
+
+Private repositories:
+- Require GitHub OAuth authentication
+- Are **not** added to the public Leaderboard
+- Only visible in your personal Dashboard
+
+## Future Enhancements
+
+<Note>
+Planned features for the Leaderboard include filters, search, historical trends, and category groupings. These will be available in a future release.
+</Note>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Dashboard" icon="gauge" href="/features/dashboard">
+    Track your personal scan history across multiple repositories
+  </Card>
+  <Card title="Understanding Reports" icon="chart-line" href="/guides/understanding-reports">
+    Learn how to interpret coverage metrics and prioritize fixes
+  </Card>
+</CardGroup>

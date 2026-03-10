@@ -1,0 +1,160 @@
+---
+title: 'Dashboard'
+description: 'Track your scan history and monitor translation coverage over time'
+---
+
+The Dashboard provides a centralized view of all your saved scan reports, making it easy to track translation health across multiple repositories over time.
+
+## Accessing the Dashboard
+
+Sign in with GitHub OAuth to access your personalized dashboard:
+
+```
+https://i18n.doctor/dashboard
+```
+
+<Note>
+You must be signed in to view the Dashboard. Scans are saved automatically when you're authenticated.
+</Note>
+
+## Dashboard Overview
+
+The Dashboard displays:
+
+<CardGroup cols={2}>
+  <Card title="Saved Reports" icon="folder">
+    Chronological list of all repositories you've scanned, with their latest results
+  </Card>
+  <Card title="Quick Actions" icon="bolt">
+    One-click access to create new scans or re-scan existing repositories
+  </Card>
+</CardGroup>
+
+## Report Cards
+
+Each saved report shows:
+
+- **Repository name** - `owner/repo` format with monospace font
+- **Coverage badge** - Color-coded percentage indicating overall translation health
+  - 🟢 Green (≥90%) - Excellent coverage
+  - 🟠 Orange (60-89%) - Needs attention
+  - 🔴 Red (&lt;60%) - Critical issues
+- **Summary statistics** - Total keys, locale count, missing keys
+- **Scan timestamp** - Date and time of the most recent scan
+
+### Report Card Layout
+
+```
+┌─────────────────────────────────────────┐
+│ owner/repo                    [85%]     │
+│ 42 keys · 4 locales · 12 missing        │
+│ Dec 15, 2024, 2:30 PM                   │
+└─────────────────────────────────────────┘
+```
+
+Click any report card to view the full health report with detailed locale breakdowns.
+
+## Empty State
+
+When you first sign in, the Dashboard will be empty:
+
+<Info>
+The empty state provides a quick link to scan your first repository. Once you scan a repo while authenticated, it will appear in your Dashboard automatically.
+</Info>
+
+## Creating a New Scan
+
+From the Dashboard, click the **New Scan** button in the top-right corner to return to the home page and scan another repository.
+
+The button includes a plus icon (➕) for easy identification.
+
+## Data Persistence
+
+<Accordion title="How reports are saved">
+When you scan a repository while signed in:
+
+1. The scan results are stored in the `reports` table in Supabase
+2. Your user ID is associated with the report via `user_id` foreign key
+3. The report includes:
+   - Repository metadata (owner, name, URL)
+   - Full scan results (coverage, locales, keys)
+   - Timestamp of the scan
+
+Reports are linked to your GitHub account and persist across sessions.
+</Accordion>
+
+<Accordion title="Privacy and data access">
+Only you can see your saved reports. The Dashboard uses Supabase Row Level Security (RLS) policies to ensure:
+
+- Reports are filtered by `user_id` matching your authenticated session
+- Other users cannot access your scan history
+- You can only view repositories you've personally scanned
+</Accordion>
+
+## Re-scanning Repositories
+
+To re-scan a repository:
+
+1. Click on the report card to view the full health report
+2. The report page always performs a fresh scan with the latest data from GitHub
+3. Your Dashboard will show the updated results after the scan completes
+
+<Warning>
+Each view counts as a new scan and consumes GitHub API rate limits. Bookmark specific report pages if you need to reference them frequently without re-scanning.
+</Warning>
+
+## Filtering and Search
+
+<Note>
+**Planned Feature**: Filtering and search capabilities for the Dashboard are currently in development and will be available in a future release.
+</Note>
+
+Planned features include:
+- Search by repository name or owner
+- Filter by coverage percentage range
+- Sort by scan date, coverage, or repository name
+- Bulk actions for multiple reports
+
+## Technical Details
+
+The Dashboard is a client-side React component that:
+
+- Uses Supabase client-side auth to verify your session
+- Fetches reports from the `reports` table filtered by your `user_id`
+- Sorts reports by `created_at` timestamp (newest first)
+- Displays a loading spinner while fetching data
+- Handles authentication redirects if you're not signed in
+
+### Database Schema
+
+Reports are stored with this structure:
+
+```typescript
+interface ReportRow {
+  id: string
+  user_id: string
+  repo_owner: string
+  repo_name: string
+  repo_url: string
+  report: {
+    totalSourceKeys: number
+    summary: {
+      avgCoverage: number
+      totalMissing: number
+      totalLocales: number
+    }
+  }
+  created_at: string
+}
+```
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Profile Settings" icon="user" href="/features/profile">
+    View your account information and connected GitHub profile
+  </Card>
+  <Card title="Leaderboard" icon="trophy" href="/features/leaderboard">
+    Compare your project's i18n health against popular open source repos
+  </Card>
+</CardGroup>

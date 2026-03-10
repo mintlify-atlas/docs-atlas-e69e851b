@@ -42,7 +42,10 @@
               "features/scanning",
               "features/health-reports",
               "features/one-click-fix",
-              "features/shareable-reports"
+              "features/shareable-reports",
+              "features/dashboard",
+              "features/leaderboard",
+              "features/profile"
             ]
           },
           {
