@@ -1,0 +1,662 @@
+---
+title: Technology Stack
+description: Complete overview of technologies powering i18n Doctor
+---
+
+## Overview
+
+i18n Doctor is built with modern, production-ready technologies emphasizing developer experience, performance, and scalability. This page provides a comprehensive breakdown of every layer in the stack.
+
+## Frontend Stack
+
+### Next.js 15
+
+<Card title="Next.js 15.5.9" icon="react">
+  The React framework for production, providing server-side rendering, static site generation, and API routes.
+</Card>
+
+**Key Features Used:**
+- **App Router**: File-system based routing with React Server Components
+- **Server Components**: Default server-side rendering for optimal performance
+- **Client Components**: Interactive UI with `'use client'` directive
+- **API Routes**: Backend endpoints in `app/api/`
+- **Turbopack**: Next-generation bundler for dev and production builds
+- **Parallel Routes**: Advanced routing patterns for layouts
+- **Route Groups**: Organize routes without affecting URL structure
+
+**Configuration:**
+```typescript
+// next.config.ts
+const config: NextConfig = {
+  transpilePackages: ['@workspace/ui'],
+  experimental: {
+    turbo: {
+      // Turbopack configuration
+    }
+  }
+}
+```
+
+### React 19
+
+**Version:** `19.1.0`
+
+The latest version of React with improved concurrent rendering and Server Components support.
+
+**New Features Used:**
+- Server Components by default
+- Improved hydration and streaming
+- Better type safety with TypeScript
+- Enhanced `use` hook for async data fetching
+
+### Tailwind CSS v4
+
+**Version:** `^4` (latest)
+
+Utility-first CSS framework with significant performance improvements in v4.
+
+**Setup:**
+```typescript
+// tailwind.config.ts
+import type { Config } from 'tailwindcss'
+
+const config: Config = {
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    '../../packages/ui/**/*.{ts,tsx}'
+  ],
+  theme: {
+    extend: {
+      fontFamily: {
+        sans: ['Fustat', 'sans-serif'],
+        mono: ['Geist Mono', 'monospace']
+      }
+    }
+  }
+}
+```
+
+**Build Tool:**
+- `@tailwindcss/postcss` - PostCSS plugin for Tailwind v4
+
+**Key Benefits:**
+- Faster builds with Rust-based engine
+- Smaller CSS output
+- Better performance with CSS Modules
+- Native CSS variable support
+
+## UI Component Libraries
+
+### Base UI
+
+**Package:** `@base-ui/react@^1.2.0`
+
+Unstyled, accessible UI primitives from the team behind Material UI.
+
+**Components Used:**
+- Buttons
+- Dialogs/Modals
+- Tooltips
+- Dropdowns
+- Form controls
+
+### Radix UI
+
+**Packages:**
+- `@radix-ui/react-label@^2.1.7`
+- `@radix-ui/react-slot@^1.2.3`
+- `@radix-ui/react-tooltip@^1.2.8`
+
+Low-level UI primitives with accessibility built-in.
+
+**Usage Pattern:**
+```typescript
+import { Tooltip, TooltipContent, TooltipTrigger } from '@workspace/ui/components/tooltip'
+
+export function MyComponent() {
+  return (
+    <Tooltip>
+      <TooltipTrigger>Hover me</TooltipTrigger>
+      <TooltipContent>Tooltip content</TooltipContent>
+    </Tooltip>
+  )
+}
+```
+
+### Icon Libraries
+
+**Packages:**
+- `@heroicons/react@^2.2.0` - Beautiful hand-crafted SVG icons
+- `@hugeicons/react@^1.0.5` - Large collection of stroke icons
+- `@remixicon/react@^4.6.0` - Open-source icon system
+- `lucide-react@^0.544.0` - Community-maintained icons
+
+**Example:**
+```typescript
+import { MagnifyingGlassIcon } from '@heroicons/react/24/outline'
+import { Search } from 'lucide-react'
+
+<MagnifyingGlassIcon className="w-5 h-5" />
+<Search size={20} />
+```
+
+### Utility Libraries
+
+**Class Management:**
+```typescript
+// class-variance-authority@^0.7.1
+import { cva } from 'class-variance-authority'
+
+const button = cva('base-classes', {
+  variants: {
+    variant: {
+      primary: 'bg-blue-500',
+      secondary: 'bg-gray-500'
+    }
+  }
+})
+```
+
+**Class Merging:**
+```typescript
+// tailwind-merge@^3.3.1 + clsx@^2.1.1
+import { cn } from '@/lib/utils'
+
+const className = cn(
+  'base-class',
+  condition && 'conditional-class',
+  props.className
+)
+```
+
+## Backend Stack
+
+### Next.js API Routes
+
+Serverless API endpoints built into the Next.js framework.
+
+**Example Route:**
+```typescript
+// app/api/scan/route.ts
+import { NextRequest, NextResponse } from 'next/server'
+
+export async function POST(req: NextRequest) {
+  const { repoUrl } = await req.json()
+  
+  // Scanning logic
+  const report = await scanRepository(repoUrl)
+  
+  return NextResponse.json(report)
+}
+```
+
+**Routes:**
+- `/api/scan` - Repository scanning endpoint
+- `/api/report/[id]` - Fetch saved reports
+- `/api/leaderboard` - Benchmark data
+
+### Database: PostgreSQL with Drizzle ORM
+
+**ORM:** Drizzle ORM (TypeScript-first SQL ORM)
+
+**Database Provider:** Supabase (managed PostgreSQL)
+
+**Environment Variable:**
+```bash
+DATABASE_URL=postgresql://user:pass@host:5432/db
+```
+
+**Schema Example:**
+```typescript
+// db/schema.ts
+import { pgTable, text, timestamp, jsonb } from 'drizzle-orm/pg-core'
+
+export const reports = pgTable('reports', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull(),
+  repoUrl: text('repo_url').notNull(),
+  scanData: jsonb('scan_data'),
+  createdAt: timestamp('created_at').defaultNow()
+})
+```
+
+**Benefits:**
+- Type-safe queries
+- Automatic migrations
+- SQL-like syntax
+- Excellent TypeScript support
+
+### Authentication: better-auth
+
+**Package:** `better-auth`
+
+Modern authentication library for Next.js with excellent TypeScript support.
+
+**Provider:** GitHub OAuth
+
+**Features:**
+- Session management
+- GitHub OAuth integration
+- User profile management
+- Secure token handling
+
+**Configuration:**
+```typescript
+// lib/auth.ts
+import { betterAuth } from 'better-auth'
+
+export const auth = betterAuth({
+  database: {
+    provider: 'pg',
+    url: process.env.DATABASE_URL
+  },
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET
+    }
+  }
+})
+```
+
+### GitHub API Integration
+
+**Client Library:** Custom implementation using `fetch`
+
+**API Version:** GitHub REST API v3
+
+**Implementation:**
+```typescript
+// lib/github.ts
+const GITHUB_API = 'https://api.github.com'
+
+function headers(): HeadersInit {
+  return {
+    Accept: 'application/vnd.github.v3+json',
+    Authorization: process.env.GITHUB_TOKEN 
+      ? `Bearer ${process.env.GITHUB_TOKEN}`
+      : undefined
+  }
+}
+```
+
+**Rate Limits:**
+- Without token: 60 requests/hour
+- With token: 5,000 requests/hour
+
+### Lingo.dev Integration
+
+**Purpose:** Automated translation of missing/incomplete locale keys
+
+**Integration Points:**
+- SDK for runtime translations
+- CLI for batch processing
+- Compiler for dogfooding (the app is multilingual)
+- CI/CD GitHub Action for auto-translation
+
+**Configuration:**
+```json
+// i18n.json
+{
+  "sourceLocale": "en",
+  "targetLocales": ["es", "fr", "de", "ja"],
+  "files": ["locales/**/*.json"]
+}
+```
+
+## Build Tools & Development
+
+### Package Manager: pnpm
+
+**Version:** `10.4.1` (enforced via `packageManager` field)
+
+**Why pnpm?**
+- Fast, disk-efficient installs
+- Strict dependency resolution
+- Built-in workspace support
+- Content-addressable storage
+
+**Commands:**
+```bash
+pnpm install       # Install dependencies
+pnpm dev          # Start dev server
+pnpm build        # Production build
+pnpm lint         # Run linting
+```
+
+### Monorepo: Turborepo
+
+**Version:** `^2.5.5`
+
+High-performance build system for JavaScript and TypeScript monorepos.
+
+**Features:**
+- Intelligent task caching
+- Parallel task execution
+- Remote caching (optional)
+- Task pipelines with dependencies
+
+**Configuration:**
+```json
+// turbo.json
+{
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**"]
+    }
+  }
+}
+```
+
+### Bundler: Turbopack
+
+Next-generation bundler built in Rust, integrated into Next.js 15.
+
+**Usage:**
+```bash
+next dev --turbopack   # Development
+next build --turbopack # Production
+```
+
+**Benefits:**
+- 10x faster than Webpack
+- Incremental compilation
+- Out-of-the-box CSS/TypeScript support
+- Better error messages
+
+### TypeScript
+
+**Version:** `5.9.2`
+
+**Configuration:**
+```json
+// tsconfig.json
+{
+  "extends": "@workspace/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noEmit": true
+  }
+}
+```
+
+**Type Safety Features:**
+- Strict mode enabled
+- Path aliases (`@/components`, `@/lib`)
+- Shared configs across workspace
+
+### Linting & Formatting
+
+**ESLint:**
+- Custom flat config in `@workspace/eslint-config`
+- Next.js plugin integration
+- Zero warnings policy (`--max-warnings 0`)
+
+**Prettier:**
+- Version: `^3.6.2`
+- Formats TypeScript, TSX, and Markdown
+- Consistent code style across workspace
+
+**Commands:**
+```bash
+pnpm lint          # Lint all packages
+pnpm format        # Format with Prettier
+```
+
+## Deployment & Hosting
+
+### Vercel
+
+**Platform:** Vercel (serverless Next.js hosting)
+
+**Features:**
+- Automatic deployments from GitHub
+- Edge Network CDN
+- Serverless Functions for API routes
+- Preview deployments for PRs
+- Web Analytics
+
+**Configuration:**
+```json
+// vercel.json
+{
+  "buildCommand": "pnpm build",
+  "framework": "nextjs",
+  "env": {
+    "DATABASE_URL": "@database-url",
+    "GITHUB_TOKEN": "@github-token"
+  }
+}
+```
+
+### Supabase
+
+**Services Used:**
+- **Database**: Managed PostgreSQL with connection pooling
+- **Auth**: GitHub OAuth integration (if configured)
+- **Storage**: Potential future use for report file storage
+- **Row-Level Security**: Secure data access policies
+
+**Environment Variables:**
+```bash
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+DATABASE_URL=postgresql://...
+```
+
+### Analytics
+
+**Package:** `@vercel/analytics@^1.6.1`
+
+**Implementation:**
+```typescript
+// app/layout.tsx
+import { Analytics } from '@vercel/analytics/react'
+
+export default function RootLayout({ children }) {
+  return (
+    <html>
+      <body>
+        {children}
+        <Analytics />
+      </body>
+    </html>
+  )
+}
+```
+
+## Validation & Type Safety
+
+### Zod
+
+**Version:** `^4.1.5`
+
+TypeScript-first schema validation library.
+
+**Usage:**
+```typescript
+import { z } from 'zod'
+
+const scanSchema = z.object({
+  repoUrl: z.string().url().or(z.string().regex(/^[\w-]+\/[\w-]+$/)),
+  branch: z.string().optional()
+})
+
+type ScanInput = z.infer<typeof scanSchema>
+```
+
+**Use Cases:**
+- API request validation
+- Form input validation
+- Environment variable validation
+- Type inference from schemas
+
+## Development Tools
+
+### Node.js
+
+**Minimum Version:** Node.js >= 20
+
+**Specified in:**
+```json
+// package.json
+"engines": {
+  "node": ">=20"
+}
+```
+
+### tsx
+
+**Version:** `^4.21.0`
+
+TypeScript execute - run TypeScript files directly.
+
+**Usage:**
+```bash
+tsx scripts/seed-db.ts
+```
+
+### Git Hooks
+
+Automated tasks on git events (future integration).
+
+**Potential Tools:**
+- Husky for hook management
+- lint-staged for pre-commit linting
+
+## Runtime & Node APIs
+
+**Key Node.js Modules:**
+- `fs/promises` - File system operations
+- `path` - Path manipulation
+- `crypto` - Hashing and tokens
+
+**Next.js Runtime:**
+- Edge Runtime for lightweight API routes
+- Node.js Runtime for complex operations
+
+## Font System
+
+**Primary Fonts:**
+- **Fustat**: Sans-serif and heading font
+- **Geist Mono**: Monospace font for code
+
+**Loading:**
+```typescript
+import { Fustat, GeistMono } from 'next/font/google'
+
+const fustat = Fustat({ subsets: ['latin'] })
+const geistMono = GeistMono({ subsets: ['latin'] })
+```
+
+## Complete Dependency List
+
+### Production Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|----------|
+| `next` | 15.5.9 | React framework |
+| `react` | 19.1.0 | UI library |
+| `react-dom` | 19.1.0 | React DOM rendering |
+| `@base-ui/react` | ^1.2.0 | Unstyled UI primitives |
+| `@radix-ui/react-label` | ^2.1.7 | Accessible labels |
+| `@radix-ui/react-slot` | ^1.2.3 | Slot composition |
+| `@radix-ui/react-tooltip` | ^1.2.8 | Tooltips |
+| `@heroicons/react` | ^2.2.0 | Icon library |
+| `@hugeicons/react` | ^1.0.5 | Icon library |
+| `@remixicon/react` | ^4.6.0 | Icon library |
+| `lucide-react` | ^0.544.0 | Icon library |
+| `@supabase/ssr` | ^0.9.0 | Supabase SSR helpers |
+| `@supabase/supabase-js` | ^2.99.0 | Supabase client |
+| `@vercel/analytics` | ^1.6.1 | Analytics |
+| `@workspace/ui` | workspace:* | Shared UI library |
+| `class-variance-authority` | ^0.7.1 | Variant styling |
+| `clsx` | ^2.1.1 | Conditional classes |
+| `tailwind-merge` | ^3.3.1 | Merge Tailwind classes |
+| `zod` | ^4.1.5 | Schema validation |
+
+### Development Dependencies
+
+| Package | Version | Purpose |
+|---------|---------|----------|
+| `typescript` | ^5.9.2 | TypeScript compiler |
+| `@types/node` | ^20 | Node.js types |
+| `@types/react` | ^19 | React types |
+| `@types/react-dom` | ^19 | React DOM types |
+| `tailwindcss` | ^4 | CSS framework |
+| `@tailwindcss/postcss` | ^4 | PostCSS plugin |
+| `tsx` | ^4.21.0 | TS execution |
+| `@workspace/eslint-config` | workspace:^ | ESLint config |
+| `@workspace/typescript-config` | workspace:* | TS config |
+| `prettier` | ^3.6.2 | Code formatter |
+| `turbo` | ^2.5.5 | Monorepo tool |
+
+## Technology Decisions
+
+<AccordionGroup>
+  <Accordion title="Why Next.js 15?">
+    - App Router with Server Components for optimal performance
+    - Turbopack for 10x faster builds
+    - Built-in API routes eliminate need for separate backend
+    - Excellent TypeScript support
+    - Seamless Vercel deployment
+  </Accordion>
+  
+  <Accordion title="Why Drizzle ORM over Prisma?">
+    - Lighter weight and faster
+    - SQL-like syntax for developers familiar with SQL
+    - Better TypeScript inference
+    - No separate schema language to learn
+  </Accordion>
+  
+  <Accordion title="Why pnpm + Turborepo?">
+    - pnpm: Fastest installs, disk efficiency, strict dependencies
+    - Turborepo: Intelligent caching speeds up monorepo builds
+    - Together: Optimal monorepo developer experience
+  </Accordion>
+  
+  <Accordion title="Why multiple icon libraries?">
+    - Different icon styles for different use cases
+    - Heroicons: High-quality UI icons
+    - Lucide: Developer-friendly stroke icons
+    - Huge Icons: Extended icon set for specialized needs
+  </Accordion>
+  
+  <Accordion title="Why Tailwind v4?">
+    - Significant performance improvements
+    - Rust-based engine for faster builds
+    - Smaller CSS output
+    - Better DX with improved error messages
+  </Accordion>
+</AccordionGroup>
+
+## Performance Characteristics
+
+<CardGroup cols={2}>
+  <Card title="Build Time" icon="clock">
+    ~30-60 seconds for full production build with Turbopack
+  </Card>
+  <Card title="Dev Server" icon="bolt">
+    Hot reload in < 100ms with Turbopack
+  </Card>
+  <Card title="First Load" icon="rocket">
+    < 3s Time to Interactive with Server Components
+  </Card>
+  <Card title="Bundle Size" icon="box">
+    ~200KB gzipped initial JavaScript bundle
+  </Card>
+</CardGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture/overview">
+    Understand the high-level system architecture
+  </Card>
+  <Card title="Monorepo Structure" icon="folder-tree" href="/architecture/monorepo-structure">
+    Learn about the workspace organization
+  </Card>
+</CardGroup>

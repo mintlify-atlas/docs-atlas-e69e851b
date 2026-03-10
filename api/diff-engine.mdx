@@ -1,0 +1,529 @@
+---
+title: "Diff Engine"
+description: "Generate localization health reports by comparing translation completeness"
+icon: "chart-line"
+---
+
+## Overview
+
+The `diff-engine` module compares locale key maps against a source locale to produce comprehensive health reports with coverage statistics, missing keys, untranslated strings, and orphan keys.
+
+**Location**: `apps/www/lib/diff-engine.ts`
+
+### Features
+
+- Compare multiple target locales against a source locale
+- Calculate coverage percentages (0-100%)
+- Identify missing keys (keys in source but not in target)
+- Detect untranslated keys (keys with empty values)
+- Find orphan keys (keys in target but not in source)
+- Generate aggregate statistics across all locales
+- Sort results by coverage (worst-first for prioritization)
+
+---
+
+## Functions
+
+### generateReport
+
+Compares all target locales against a source locale and generates a comprehensive health report.
+
+```typescript
+function generateReport(
+  sourceLocale: string,
+  keyMaps: Record<string, KeyMap>
+): ScanReport
+```
+
+<ParamField path="sourceLocale" type="string" required>
+  The locale code to use as the reference (e.g., `"en"`). This locale's keys are considered the complete set.
+</ParamField>
+
+<ParamField path="keyMaps" type="Record<string, KeyMap>" required>
+  Map of locale code to flat key-value map. Must include the source locale. All other locales are compared against the source.
+  
+  ```typescript
+  {
+    "en": { "welcome": "Welcome", "user.name": "Name" },
+    "fr": { "welcome": "Bienvenue", "user.name": "" },
+    "es": { "welcome": "Bienvenido" }
+  }
+  ```
+</ParamField>
+
+<ResponseField name="ScanReport" type="object">
+  Comprehensive health report with per-locale and aggregate statistics
+
+  <Expandable title="ScanReport properties">
+    <ResponseField name="sourceLocale" type="string">
+      The source locale code used as reference
+    </ResponseField>
+
+    <ResponseField name="totalSourceKeys" type="number">
+      Total number of keys in the source locale
+    </ResponseField>
+
+    <ResponseField name="locales" type="LocaleHealth[]">
+      Array of per-locale health reports, sorted by coverage ascending (worst first)
+    </ResponseField>
+
+    <ResponseField name="summary" type="object">
+      Aggregate statistics across all locales
+
+      <Expandable title="summary properties">
+        <ResponseField name="totalLocales" type="number">
+          Number of target locales analyzed
+        </ResponseField>
+
+        <ResponseField name="avgCoverage" type="number">
+          Average coverage percentage across all locales (0-100)
+        </ResponseField>
+
+        <ResponseField name="totalMissing" type="number">
+          Sum of all missing keys across all locales
+        </ResponseField>
+
+        <ResponseField name="totalUntranslated" type="number">
+          Sum of all untranslated keys across all locales
+        </ResponseField>
+
+        <ResponseField name="totalOrphan" type="number">
+          Sum of all orphan keys across all locales
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+import { generateReport } from "@/lib/diff-engine"
+import type { KeyMap } from "@/lib/locale-parser"
+
+const keyMaps: Record<string, KeyMap> = {
+  "en": {
+    "welcome": "Welcome",
+    "user.name": "Name",
+    "user.email": "Email",
+    "error.required": "Required",
+  },
+  "fr": {
+    "welcome": "Bienvenue",
+    "user.name": "Nom",
+    "user.email": "", // Untranslated
+    // Missing: error.required
+  },
+  "es": {
+    "welcome": "Bienvenido",
+    "user.name": "Nombre",
+    "user.email": "Correo",
+    "user.phone": "Teléfono", // Orphan (not in source)
+    // Missing: error.required
+  },
+}
+
+const report = generateReport("en", keyMaps)
+
+console.log(report)
+// {
+//   sourceLocale: "en",
+//   totalSourceKeys: 4,
+//   locales: [
+//     {
+//       locale: "fr",
+//       totalKeys: 3,
+//       translatedKeys: 2,
+//       missingKeys: ["error.required"],
+//       untranslatedKeys: ["user.email"],
+//       orphanKeys: [],
+//       coverage: 50  // 2/4 = 50%
+//     },
+//     {
+//       locale: "es",
+//       totalKeys: 4,
+//       translatedKeys: 3,
+//       missingKeys: ["error.required"],
+//       untranslatedKeys: [],
+//       orphanKeys: ["user.phone"],
+//       coverage: 75  // 3/4 = 75%
+//     }
+//   ],
+//   summary: {
+//     totalLocales: 2,
+//     avgCoverage: 63,  // (50 + 75) / 2 = 62.5 → 63
+//     totalMissing: 2,
+//     totalUntranslated: 1,
+//     totalOrphan: 1
+//   }
+// }
+```
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:72`:
+
+```typescript
+// Generate report
+const report: ScanReport = generateReport(sourceLocale, keyMaps)
+
+return NextResponse.json({
+  repo: {
+    owner,
+    repo,
+    branch,
+    description: repoInfo.description,
+    stars: repoInfo.stars,
+  },
+  localeGroup: {
+    basePath: group.basePath,
+    style: group.style,
+    locales: Object.keys(group.files),
+  },
+  report,
+})
+```
+
+---
+
+## Types
+
+### ScanReport
+
+Overall health report for all locales.
+
+```typescript
+interface ScanReport {
+  sourceLocale: string
+  totalSourceKeys: number
+  locales: LocaleHealth[]
+  summary: {
+    totalLocales: number
+    avgCoverage: number
+    totalMissing: number
+    totalUntranslated: number
+    totalOrphan: number
+  }
+}
+```
+
+### LocaleHealth
+
+Per-locale health statistics.
+
+```typescript
+interface LocaleHealth {
+  locale: string
+  totalKeys: number
+  translatedKeys: number
+  missingKeys: string[]
+  untranslatedKeys: string[]
+  orphanKeys: string[]
+  coverage: number // 0–100
+}
+```
+
+---
+
+## Detection Algorithm
+
+The diff engine uses set-based comparison to categorize translation issues:
+
+### 1. Missing Keys
+
+Keys that exist in the source locale but are **absent** in the target locale.
+
+```typescript
+const sourceKeySet = new Set(Object.keys(sourceKeys))
+const targetKeySet = new Set(Object.keys(targetKeys))
+
+const missingKeys = [...sourceKeySet].filter((k) => !targetKeySet.has(k))
+```
+
+**Example:**
+
+```typescript
+// Source (en)
+{ "welcome": "Welcome", "goodbye": "Goodbye" }
+
+// Target (fr)
+{ "welcome": "Bienvenue" }
+
+// Missing: ["goodbye"]
+```
+
+### 2. Untranslated Keys
+
+Keys that exist in the target locale but have **empty values** (trim to empty string).
+
+```typescript
+const untranslatedKeys = [...sourceKeySet].filter(
+  (k) => targetKeySet.has(k) && keys[k]?.trim() === ""
+)
+```
+
+**Example:**
+
+```typescript
+// Source (en)
+{ "welcome": "Welcome", "goodbye": "Goodbye" }
+
+// Target (fr)
+{ "welcome": "Bienvenue", "goodbye": "" }
+
+// Untranslated: ["goodbye"]
+```
+
+<Info>
+Keys with whitespace-only values are considered untranslated (after `.trim()`).
+</Info>
+
+### 3. Orphan Keys
+
+Keys that exist in the target locale but are **not present** in the source locale. These are leftover/unused translations.
+
+```typescript
+const orphanKeys = [...targetKeySet].filter((k) => !sourceKeySet.has(k))
+```
+
+**Example:**
+
+```typescript
+// Source (en)
+{ "welcome": "Welcome" }
+
+// Target (fr)
+{ "welcome": "Bienvenue", "old.key": "Ancienne clé" }
+
+// Orphan: ["old.key"]
+```
+
+<Tip>
+Orphan keys may indicate:
+- Outdated translations from previous versions
+- Renamed keys in the source locale
+- Extra keys added manually to target locales
+</Tip>
+
+### 4. Coverage Calculation
+
+```typescript
+const translatedKeys = totalSourceKeys - missingKeys.length - untranslatedKeys.length
+const coverage = totalSourceKeys > 0 
+  ? Math.round((translatedKeys / totalSourceKeys) * 100)
+  : 100
+```
+
+**Formula:**
+
+```
+translatedKeys = totalSourceKeys - missing - untranslated
+coverage = (translatedKeys / totalSourceKeys) × 100
+```
+
+**Example:**
+
+```typescript
+// Source: 100 keys
+// Target: 90 keys present, 5 empty values
+// Missing: 10 keys
+// Untranslated: 5 keys
+// Translated: 100 - 10 - 5 = 85
+// Coverage: 85 / 100 = 85%
+```
+
+---
+
+## Sorting and Prioritization
+
+Results are sorted by coverage **ascending** (worst-first) to prioritize locales that need the most work:
+
+```typescript
+localeResults.sort((a, b) => a.coverage - b.coverage)
+```
+
+**Example:**
+
+```typescript
+[
+  { locale: "de", coverage: 45 },  // ← Needs most work
+  { locale: "fr", coverage: 72 },
+  { locale: "es", coverage: 98 },  // ← Nearly complete
+]
+```
+
+---
+
+## Error Handling
+
+### Missing Source Locale
+
+```typescript
+const sourceKeys = keyMaps[sourceLocale]
+if (!sourceKeys) {
+  throw new Error(`Source locale "${sourceLocale}" not found in key maps`)
+}
+```
+
+**Example:**
+
+```typescript
+try {
+  const report = generateReport("en", { "fr": {...}, "es": {...} })
+} catch (error) {
+  // Error: Source locale "en" not found in key maps
+}
+```
+
+<Warning>
+Always ensure the source locale is present in the `keyMaps` object before calling `generateReport()`.
+</Warning>
+
+---
+
+## Complete Example
+
+```typescript
+import { getRepoTree, getFileContent } from "@/lib/github"
+import { detectLocaleFiles, guessSourceLocale } from "@/lib/locale-detector"
+import { parseLocaleFile, type KeyMap } from "@/lib/locale-parser"
+import { generateReport, type ScanReport } from "@/lib/diff-engine"
+
+async function analyzeRepoTranslations(
+  owner: string,
+  repo: string,
+  branch: string
+): Promise<ScanReport> {
+  // 1. Fetch file tree
+  const tree = await getRepoTree(owner, repo, branch)
+  
+  // 2. Detect locale files
+  const groups = detectLocaleFiles(tree)
+  if (groups.length === 0) {
+    throw new Error("No locale files found")
+  }
+  
+  const group = groups[0]!
+  const sourceLocale = guessSourceLocale(group)
+  
+  // 3. Parse all locale files
+  const keyMaps: Record<string, KeyMap> = {}
+  
+  const promises = Object.entries(group.files).flatMap(
+    ([locale, filePaths]) =>
+      filePaths.map(async (filePath) => {
+        const content = await getFileContent(owner, repo, branch, filePath)
+        const keys = parseLocaleFile(content, filePath)
+        if (!keyMaps[locale]) keyMaps[locale] = {}
+        Object.assign(keyMaps[locale], keys)
+      })
+  )
+  await Promise.all(promises)
+  
+  // 4. Generate report
+  const report = generateReport(sourceLocale, keyMaps)
+  
+  // 5. Display summary
+  console.log(`\n📊 Translation Health Report`)
+  console.log(`Source: ${report.sourceLocale} (${report.totalSourceKeys} keys)\n`)
+  
+  for (const locale of report.locales) {
+    console.log(`${locale.locale}: ${locale.coverage}% complete`)
+    if (locale.missingKeys.length > 0) {
+      console.log(`  ❌ ${locale.missingKeys.length} missing`)
+    }
+    if (locale.untranslatedKeys.length > 0) {
+      console.log(`  ⚠️  ${locale.untranslatedKeys.length} untranslated`)
+    }
+    if (locale.orphanKeys.length > 0) {
+      console.log(`  🗑️  ${locale.orphanKeys.length} orphan`)
+    }
+  }
+  
+  console.log(`\n📈 Average coverage: ${report.summary.avgCoverage}%`)
+  
+  return report
+}
+
+// Usage
+analyzeRepoTranslations("facebook", "react", "main")
+```
+
+---
+
+## Output Example
+
+```json
+{
+  "sourceLocale": "en",
+  "totalSourceKeys": 250,
+  "locales": [
+    {
+      "locale": "de",
+      "totalKeys": 180,
+      "translatedKeys": 165,
+      "missingKeys": ["user.profile.bio", "settings.privacy.title"],
+      "untranslatedKeys": ["error.validation.email"],
+      "orphanKeys": ["old.deprecated.key"],
+      "coverage": 66
+    },
+    {
+      "locale": "fr",
+      "totalKeys": 245,
+      "translatedKeys": 240,
+      "missingKeys": ["new.feature.title"],
+      "untranslatedKeys": [],
+      "orphanKeys": [],
+      "coverage": 96
+    },
+    {
+      "locale": "es",
+      "totalKeys": 250,
+      "translatedKeys": 250,
+      "missingKeys": [],
+      "untranslatedKeys": [],
+      "orphanKeys": [],
+      "coverage": 100
+    }
+  ],
+  "summary": {
+    "totalLocales": 3,
+    "avgCoverage": 87,
+    "totalMissing": 3,
+    "totalUntranslated": 1,
+    "totalOrphan": 1
+  }
+}
+```
+
+---
+
+## Performance Considerations
+
+### Time Complexity
+
+- **Set operations**: O(n) where n = total keys across all locales
+- **Sorting**: O(m log m) where m = number of locales
+- **Overall**: O(n + m log m)
+
+### Memory Usage
+
+- Stores all keys in memory as Set structures
+- Peak usage: ~3× total key count (source set + target set + result arrays)
+
+### Optimization Tips
+
+<CardGroup cols={2}>
+  <Card title="Use Sets" icon="layer-group">
+    Set operations are O(1) for lookups vs O(n) for arrays
+  </Card>
+  <Card title="Filter Early" icon="filter">
+    Filter locales before parsing to reduce memory usage
+  </Card>
+  <Card title="Batch Processing" icon="boxes-stacked">
+    Process files in parallel with `Promise.all()`
+  </Card>
+  <Card title="Stream Large Files" icon="stream">
+    For repos with 1000+ keys per locale, consider streaming parsers
+  </Card>
+</CardGroup>

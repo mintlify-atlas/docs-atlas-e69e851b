@@ -1,80 +1,352 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Scan your first repository in under 2 minutes
 ---
 
-## Get started in three steps
+## Get Started
 
-Get your documentation site running locally and make your first customization.
-
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
-    
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
-    
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
-    
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
-
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
-
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 3: Go live
-
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
-
-## Next steps
-
-Now that you have your docs running, explore these key features:
-
-<CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
-</CardGroup>
+This guide walks you through scanning a GitHub repository and understanding your localization health report.
 
 <Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
+  **No account required** — Just paste a repo URL and scan. GitHub OAuth is optional for saving scan history.
 </Note>
+
+<Steps>
+  <Step title="Visit i18n.doctor">
+    Navigate to **[https://i18n.doctor](https://i18n.doctor)** in your browser.
+    
+    You'll see the main landing page with a repo input field.
+  </Step>
+
+  <Step title="Enter a GitHub Repository">
+    Paste a public GitHub repository URL in one of these formats:
+    
+    ```plaintext
+    https://github.com/owner/repo
+    owner/repo
+    https://github.com/owner/repo/tree/main
+    ```
+    
+    <Tip>
+      **Try this example:** `vercel/next.js` or any repo you maintain with translation files
+    </Tip>
+    
+    The scanner accepts:
+    - Full GitHub URLs
+    - Short `owner/repo` format
+    - URLs with specific branches (e.g., `/tree/develop`)
+    
+    Then click **Scan Repo**.
+  </Step>
+
+  <Step title="Wait for the Scan">
+    The scanner performs the following steps automatically:
+    
+    1. **Fetches repo metadata** — Validates the repo exists and gets the default branch
+    2. **Retrieves the file tree** — Pulls the complete directory structure via GitHub API
+    3. **Detects locale files** — Searches for translation files in common patterns:
+       ```plaintext
+       ✓ locales/
+       ✓ i18n/
+       ✓ messages/
+       ✓ public/locales/
+       ✓ src/locales/
+       ✓ app/i18n/
+       ```
+    4. **Parses all locale files** — Extracts key-value pairs from JSON, YAML, or `.po` files
+    5. **Generates the health report** — Compares target locales against the source locale
+    
+    <Info>
+      Typical scan time: **5-15 seconds** for repos with 10-50 locale files
+    </Info>
+    
+    If no locale files are found, you'll see:
+    ```plaintext
+    No locale files found. 
+    We look for JSON/YAML/PO files in directories like 
+    locales/, i18n/, messages/, lang/, etc.
+    ```
+  </Step>
+
+  <Step title="Review the Health Report">
+    Once the scan completes, you'll see a comprehensive dashboard with:
+    
+    ### Summary Cards
+    
+    Four key metrics at the top:
+    
+    | Metric | Description |
+    |--------|-------------|
+    | **Total Keys** | Number of translation keys in the source locale (e.g., `en`) |
+    | **Avg Coverage** | Average coverage percentage across all target locales |
+    | **Missing Keys** | Total number of keys that exist in source but not in target locales |
+    | **Orphan Keys** | Keys present in target locales but absent from source (unused) |
+    
+    ### Repository Info
+    
+    Just below the header, you'll see badges showing:
+    - **Base path** — Where locale files were found (e.g., `locales/`)
+    - **Style** — `flat` (e.g., `locales/en.json`) or `nested` (e.g., `locales/en/common.json`)
+    - **Source locale** — The reference locale used for comparison (usually `en`)
+    
+    ### Locale Cards
+    
+    Each target locale gets a card displaying:
+    
+    <Frame>
+      <div className="space-y-2 p-4 border rounded-lg">
+        <div className="flex justify-between items-center">
+          <span className="font-mono font-bold">fr</span>
+          <span className="text-xs bg-yellow-100 text-yellow-800 px-2 py-1 rounded">85% coverage</span>
+        </div>
+        <div className="h-4 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-yellow-500" style={{width: '85%'}} />
+        </div>
+        <p className="text-xs text-gray-600 font-mono">36/42 keys translated · 6 issues</p>
+        <button className="text-xs bg-gray-100 px-3 py-1 rounded">Show details</button>
+      </div>
+    </Frame>
+    
+    **Color coding:**
+    - <span style={{color: 'green'}}>🟢 Green (≥90%)</span> — Excellent coverage
+    - <span style={{color: 'orange'}}>🟠 Orange (60-89%)</span> — Needs attention
+    - <span style={{color: 'red'}}>🔴 Red (&lt;60%)</span> — Critical issues
+  </Step>
+
+  <Step title="Expand Locale Details">
+    Click **Show details** on any locale card to see exactly what's wrong:
+    
+    ### Missing Keys
+    
+    Keys that exist in the source locale but are absent from this target:
+    
+    ```plaintext
+    Missing keys (4)
+    • dashboard.welcome.title
+    • dashboard.welcome.subtitle
+    • settings.privacy.label
+    • settings.privacy.description
+    ```
+    
+    **Impact:** Users will see English fallbacks or blank strings.
+    
+    ### Untranslated Keys
+    
+    Keys that exist but have empty values:
+    
+    ```json
+    // fr.json
+    {
+      "welcome.title": "",  // ❌ Untranslated
+      "welcome.subtitle": "Commencez ci-dessous"  // ✅ Translated
+    }
+    ```
+    
+    **Impact:** Same as missing keys — no text displayed.
+    
+    ### Orphan Keys
+    
+    Keys present in target locale but not in source:
+    
+    ```plaintext
+    Orphan keys (2)
+    • old_feature.title
+    • deprecated.message
+    ```
+    
+    **Impact:** Bloat in translation files. These keys are unused and can be safely removed.
+    
+    <Tip>
+      Focus on **missing** and **untranslated** keys first — orphans are lower priority cleanup tasks.
+    </Tip>
+  </Step>
+
+  <Step title="Fix Issues with Lingo.dev (Coming Soon)">
+    The **"Fix with Lingo.dev"** button will translate all missing/untranslated keys:
+    
+    1. Click the fix button on the report page
+    2. Lingo.dev translates all gaps using context-aware AI
+    3. Preview a live diff of changes
+    4. Download a ZIP file with updated locale files
+    5. Optionally open a GitHub PR with the fixes
+    
+    <Warning>
+      This feature is currently in development. For now, use the scan report to manually identify and fix issues.
+    </Warning>
+  </Step>
+</Steps>
+
+## Understanding the Scan Results
+
+### Example: Real Scan Output
+
+Let's walk through a real example. Suppose you scan a repo with this structure:
+
+```plaintext
+locales/
+  en.json       (source, 42 keys)
+  fr.json       (36 keys, 4 empty values)
+  es.json       (28 keys)
+  de.json       (40 keys, 3 orphan keys)
+```
+
+The report will show:
+
+<AccordionGroup>
+  <Accordion title="French (fr) — 85% coverage">
+    ```yaml
+    Translated: 36/42 keys
+    Missing: 6 keys
+    Untranslated: 4 keys (empty strings in fr.json)
+    Orphan: 0 keys
+    ```
+    
+    **Diagnosis:** Missing 6 keys and 4 have empty values. Need to add 10 translations total.
+  </Accordion>
+  
+  <Accordion title="Spanish (es) — 67% coverage">
+    ```yaml
+    Translated: 28/42 keys
+    Missing: 14 keys
+    Untranslated: 0 keys
+    Orphan: 0 keys
+    ```
+    
+    **Diagnosis:** Missing 14 translations. File is outdated.
+  </Accordion>
+  
+  <Accordion title="German (de) — 95% coverage">
+    ```yaml
+    Translated: 40/42 keys
+    Missing: 2 keys
+    Untranslated: 0 keys
+    Orphan: 3 keys
+    ```
+    
+    **Diagnosis:** Nearly perfect! Missing only 2 keys. Has 3 orphan keys from old features.
+  </Accordion>
+</AccordionGroup>
+
+**Summary:** Average coverage is 82%. German is in great shape, Spanish needs the most work.
+
+## Supported File Formats
+
+The scanner automatically parses these formats:
+
+<Tabs>
+  <Tab title="JSON (nested)">
+    ```json
+    {
+      "app": {
+        "title": "My App",
+        "nav": {
+          "home": "Home",
+          "about": "About"
+        }
+      }
+    }
+    ```
+    Flattened to: `app.title`, `app.nav.home`, `app.nav.about`
+  </Tab>
+  
+  <Tab title="YAML">
+    ```yaml
+    app:
+      title: My App
+      nav:
+        home: Home
+        about: About
+    ```
+    Handles nested keys with indentation
+  </Tab>
+  
+  <Tab title="PO (gettext)">
+    ```po
+    msgid "app.title"
+    msgstr "My App"
+
+    msgid "app.nav.home"
+    msgstr "Home"
+    ```
+    Extracts `msgid` / `msgstr` pairs
+  </Tab>
+</Tabs>
+
+## Common Issues
+
+<AccordionGroup>
+  <Accordion title="Repository not found">
+    **Causes:**
+    - Repo is private (only public repos are supported)
+    - Incorrect owner or repo name
+    - Repo was deleted or renamed
+    
+    **Solution:** Verify the repo exists and is public at github.com/owner/repo
+  </Accordion>
+  
+  <Accordion title="No locale files found">
+    **Causes:**
+    - Locale files are in an uncommon directory (e.g., `assets/langs/`)
+    - Files use unsupported formats (e.g., `.xml`, `.properties`)
+    
+    **Solution:** 
+    - Move files to standard paths: `locales/`, `i18n/`, `public/locales/`
+    - Convert to JSON, YAML, or `.po` format
+  </Accordion>
+  
+  <Accordion title="GitHub API rate limit exceeded">
+    **Causes:**
+    - Too many scans from the same IP (60/hour without auth)
+    
+    **Solution:**
+    - Sign in with GitHub OAuth for 5,000 requests/hour
+    - Wait for the rate limit to reset (shown in error message)
+  </Accordion>
+  
+  <Accordion title="Source locale not detected correctly">
+    The scanner guesses the source locale using this heuristic:
+    1. Prefer `en` if present
+    2. Prefer `en-us` if `en` is absent
+    3. Fall back to first locale alphabetically
+    
+    If the wrong locale is chosen, rename your source file to `en.json` or use a nested structure like `locales/en/`.
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Core Features" icon="sparkles" href="/features/scanning">
+    Learn about scanning, health reports, and one-click fixes
+  </Card>
+  
+  <Card title="Understanding Reports" icon="chart-line" href="/guides/understanding-reports">
+    Learn how to interpret scan results and prioritize fixes
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/scan">
+    Integrate scans into your CI/CD pipeline with the REST API
+  </Card>
+  
+  <Card title="Supported Formats" icon="file-code" href="/guides/supported-formats">
+    See all supported translation file formats and examples
+  </Card>
+</CardGroup>
+
+## Tips for Better Results
+
+<Tip>
+  **Use consistent directory structures** — Keep all locales in the same folder with the same file names (e.g., `locales/en.json`, `locales/fr.json`)
+</Tip>
+
+<Tip>
+  **Flatten deeply nested JSON** — Prefer `user.profile.name` over `{ user: { profile: { name: "..." } } }` for easier key diffing
+</Tip>
+
+<Tip>
+  **Remove orphan keys regularly** — Run scans before releases and clean up unused translations to reduce file size
+</Tip>
+
+<Tip>
+  **Automate with CI/CD** — Add the scan API to GitHub Actions to block merges when coverage drops below 80%
+</Tip>

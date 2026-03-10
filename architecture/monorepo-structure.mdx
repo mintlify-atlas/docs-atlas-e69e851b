@@ -1,0 +1,493 @@
+---
+title: Monorepo Structure
+description: Understanding the pnpm workspaces + Turborepo setup
+---
+
+## Overview
+
+i18n Doctor is built as a monorepo using **pnpm workspaces** for dependency management and **Turborepo** for task orchestration. This structure promotes code reuse, consistent tooling, and efficient builds across multiple packages.
+
+## Workspace Layout
+
+The repository is organized into two main directories:
+
+```bash
+i18n-doctor/
+├── apps/
+│   └── www/              # Next.js web application
+├── packages/
+│   ├── ui/               # Shared UI component library
+│   ├── eslint-config/    # Shared ESLint configuration
+│   └── typescript-config/ # Shared TypeScript configuration
+├── package.json          # Root workspace configuration
+├── pnpm-workspace.yaml   # pnpm workspace definition
+└── turbo.json            # Turborepo task pipeline
+```
+
+## Package Details
+
+### `apps/www` - Main Web Application
+
+The core Next.js application serving the i18n Doctor web interface.
+
+<Accordion title="Directory Structure">
+```bash
+apps/www/
+├── app/                  # Next.js App Router
+│   ├── (auth)/          # Auth-related pages
+│   ├── (dashboard)/     # Dashboard pages
+│   ├── api/             # API routes
+│   └── page.tsx         # Home page
+├── components/          # React components
+│   ├── ui/              # UI primitives
+│   ├── scan-form.tsx    # Repo scanning form
+│   └── report-card.tsx  # Health report display
+├── lib/                 # Utility libraries
+│   ├── github.ts        # GitHub API helpers
+│   ├── locale-detector.ts
+│   ├── locale-parser.ts
+│   ├── diff-engine.ts
+│   └── supabase/        # Supabase client
+├── public/              # Static assets
+├── next.config.ts       # Next.js configuration
+├── tailwind.config.ts   # Tailwind CSS v4 config
+└── package.json
+```
+</Accordion>
+
+**Key Features:**
+- Next.js 15 with App Router and React 19
+- Turbopack for development and production builds
+- Tailwind CSS v4 for styling
+- Server and client components architecture
+- API routes for scanning and data operations
+
+**Package Name:** `www` (private)
+
+**Scripts:**
+```json
+{
+  "dev": "next dev --turbopack",
+  "build": "next build --turbopack",
+  "start": "next start",
+  "lint": "next lint --max-warnings 0",
+  "typecheck": "tsc --noEmit"
+}
+```
+
+### `packages/ui` - Shared UI Library
+
+Reusable UI primitives and components shared across the workspace.
+
+<Note>
+  This package uses **raw TypeScript source exports** with no build step. The www app transpiles it directly via `transpilePackages: ["@workspace/ui"]` in `next.config.ts`.
+</Note>
+
+**Package Name:** `@workspace/ui`
+
+**Exports:**
+- `@workspace/ui/ui/*` - Base UI primitives
+- `@workspace/ui/components/*` - Complex components
+- `@workspace/ui/lib/*` - Utility functions
+- `@workspace/ui/hooks/*` - React hooks
+
+**Technologies:**
+- Base UI (@base-ui/react)
+- Radix UI primitives
+- shadcn-style component patterns
+- Class Variance Authority for variants
+- Tailwind CSS for styling
+
+**Example Import:**
+```typescript
+import { Button } from '@workspace/ui/components/button'
+import { useToast } from '@workspace/ui/hooks/use-toast'
+```
+
+### `packages/eslint-config` - ESLint Configuration
+
+**Package Name:** `@workspace/eslint-config`
+
+Shared ESLint flat config for consistent linting across all packages.
+
+**Features:**
+- Modern ESLint flat config format
+- Next.js-specific rules
+- TypeScript integration
+- Import sorting and organization
+- Zero warnings policy (`--max-warnings 0`)
+
+**Usage:**
+```javascript
+// eslint.config.js
+import baseConfig from '@workspace/eslint-config'
+
+export default baseConfig
+```
+
+### `packages/typescript-config` - TypeScript Configuration
+
+**Package Name:** `@workspace/typescript-config`
+
+Shared TypeScript configuration bases for consistent type checking.
+
+**Configs:**
+- `base.json` - Common settings
+- `nextjs.json` - Next.js-specific settings
+- `react-library.json` - React library settings
+
+**Usage:**
+```json
+// tsconfig.json
+{
+  "extends": "@workspace/typescript-config/nextjs.json",
+  "compilerOptions": {
+    "outDir": ".next"
+  }
+}
+```
+
+## pnpm Workspaces
+
+The monorepo uses pnpm workspaces for efficient dependency management.
+
+### Workspace Configuration
+
+```yaml
+# pnpm-workspace.yaml
+packages:
+  - 'apps/*'
+  - 'packages/*'
+```
+
+### Dependency Management
+
+**Installing Dependencies:**
+
+```bash
+# Install for all workspaces
+pnpm install
+
+# Install for specific workspace
+pnpm --filter www add react-query
+pnpm --filter @workspace/ui add @radix-ui/react-dialog
+```
+
+**Workspace Protocol:**
+
+Internal packages reference each other using `workspace:*`:
+
+```json
+// apps/www/package.json
+{
+  "dependencies": {
+    "@workspace/ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@workspace/eslint-config": "workspace:^",
+    "@workspace/typescript-config": "workspace:*"
+  }
+}
+```
+
+**Benefits:**
+- Deduplication of shared dependencies
+- Consistent versions across packages
+- Faster installs with content-addressable storage
+- Automatic symlinks between workspace packages
+
+## Turborepo Task Orchestration
+
+Turborepo orchestrates build tasks across the monorepo with intelligent caching and parallelization.
+
+### Task Pipeline
+
+```json
+// turbo.json
+{
+  "$schema": "https://turborepo.com/schema.json",
+  "ui": "tui",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build"],
+      "env": ["DATABASE_URL", "GITHUB_TOKEN"],
+      "inputs": ["$TURBO_DEFAULT$", ".env*"],
+      "outputs": [".next/**", "!.next/cache/**"]
+    },
+    "lint": {
+      "dependsOn": ["^lint"],
+      "env": ["GITHUB_TOKEN"]
+    },
+    "check-types": {
+      "dependsOn": ["^check-types"]
+    },
+    "dev": {
+      "cache": false,
+      "persistent": true
+    }
+  }
+}
+```
+
+### Task Execution
+
+<CodeGroup>
+
+```bash Development
+# Run dev servers for all apps
+pnpm dev
+
+# Run dev for specific app
+pnpm --filter www dev
+```
+
+```bash Build
+# Build all packages/apps
+pnpm build
+
+# Build with cache
+turbo run build
+```
+
+```bash Lint
+# Lint all packages
+pnpm lint
+
+# Lint specific package
+pnpm --filter @workspace/ui lint
+```
+
+```bash Type Check
+# Type-check www app
+cd apps/www && pnpm typecheck
+```
+
+</CodeGroup>
+
+### Task Dependencies
+
+The `^` prefix in `dependsOn` means "run this task on dependencies first":
+
+```json
+"build": {
+  "dependsOn": ["^build"]
+}
+```
+
+This ensures that `@workspace/ui` is built before `apps/www` during the build process.
+
+### Environment Variables
+
+Turborepo explicitly declares environment variables required for each task:
+
+- **build**: Requires `DATABASE_URL` and optional `GITHUB_TOKEN`
+- **lint**: Can use `GITHUB_TOKEN` for extended checks
+- **dev**: No special environment requirements
+
+<Warning>
+  The build task depends on `DATABASE_URL`. You must set this in `apps/www/.env.local` before building.
+</Warning>
+
+### Caching Strategy
+
+Turborepo caches task outputs for faster subsequent runs:
+
+- **build**: Caches `.next/**` except `.next/cache/**`
+- **lint**: Caches lint results
+- **dev**: Never cached (persistent task)
+
+**Cache Keys Include:**
+- Task inputs (source files, dependencies)
+- Environment variables declared in `env`
+- `.env*` files for build task
+
+## Root Package Configuration
+
+```json
+// package.json
+{
+  "name": "i18n-doctor",
+  "version": "0.0.1",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.6.2",
+    "turbo": "^2.5.5",
+    "typescript": "5.9.2"
+  },
+  "packageManager": "pnpm@10.4.1",
+  "engines": {
+    "node": ">=20"
+  }
+}
+```
+
+**Key Points:**
+- Enforces Node.js >= 20
+- Pins pnpm version to 10.4.1
+- All scripts delegate to Turborepo
+- Prettier for code formatting
+
+## Development Workflow
+
+### Initial Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/lokendrakushwah12/i18n-doctor.git
+cd i18n-doctor
+
+# Install dependencies
+pnpm install
+
+# Set up environment variables
+cp apps/www/.env.example apps/www/.env.local
+# Edit .env.local with your values
+
+# Start development
+pnpm dev
+```
+
+### Adding a New Package
+
+<Steps>
+  <Step title="Create Package Directory">
+    ```bash
+    mkdir -p packages/my-package
+    cd packages/my-package
+    ```
+  </Step>
+  
+  <Step title="Initialize Package">
+    ```json
+    // package.json
+    {
+      "name": "@workspace/my-package",
+      "version": "0.0.0",
+      "private": true,
+      "exports": {
+        ".": "./src/index.ts"
+      }
+    }
+    ```
+  </Step>
+  
+  <Step title="Add TypeScript Configuration">
+    ```json
+    // tsconfig.json
+    {
+      "extends": "@workspace/typescript-config/base.json"
+    }
+    ```
+  </Step>
+  
+  <Step title="Install in Consumer Package">
+    ```bash
+    pnpm --filter www add @workspace/my-package
+    ```
+  </Step>
+</Steps>
+
+### Running Tasks
+
+```bash
+# Run a task for all packages
+turbo run build
+turbo run lint
+turbo run check-types
+
+# Run a task for specific package
+turbo run build --filter=www
+turbo run lint --filter=@workspace/ui
+
+# Run with verbose logging
+turbo run build --verbose
+
+# Clear Turborepo cache
+turbo run build --force
+```
+
+## Benefits of This Structure
+
+<CardGroup cols={2}>
+  <Card title="Code Reuse" icon="recycle">
+    Shared UI components and configurations reduce duplication
+  </Card>
+  <Card title="Consistent Tooling" icon="wrench">
+    Unified linting, formatting, and type-checking rules
+  </Card>
+  <Card title="Efficient Builds" icon="gauge-high">
+    Turborepo caching speeds up repeated builds by 10x or more
+  </Card>
+  <Card title="Scalability" icon="arrow-trend-up">
+    Easy to add new apps and packages as the project grows
+  </Card>
+  <Card title="Type Safety" icon="shield">
+    Shared TypeScript configs ensure consistent typing
+  </Card>
+  <Card title="Developer Experience" icon="user">
+    Fast hot reload, incremental builds, and clear error messages
+  </Card>
+</CardGroup>
+
+## Common Commands Reference
+
+| Command | Description |
+|---------|-------------|
+| `pnpm install` | Install all dependencies |
+| `pnpm dev` | Start all apps in dev mode |
+| `pnpm build` | Build all packages/apps |
+| `pnpm lint` | Lint all packages/apps |
+| `pnpm format` | Format code with Prettier |
+| `pnpm --filter www dev` | Start only the www app |
+| `turbo run build --force` | Build without cache |
+| `turbo run build --dry` | Show what would be built |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="Module not found errors">
+    Run `pnpm install` at the root to ensure all workspace links are created.
+    
+    ```bash
+    # Clean install
+    rm -rf node_modules apps/*/node_modules packages/*/node_modules
+    pnpm install
+    ```
+  </Accordion>
+  
+  <Accordion title="Turborepo cache issues">
+    Clear the Turbo cache and rebuild:
+    
+    ```bash
+    turbo run build --force
+    ```
+  </Accordion>
+  
+  <Accordion title="TypeScript errors in @workspace/ui">
+    Ensure `transpilePackages` is configured in `next.config.ts`:
+    
+    ```typescript
+    const config: NextConfig = {
+      transpilePackages: ['@workspace/ui']
+    }
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Architecture Overview" icon="sitemap" href="/architecture/overview">
+    Understand the high-level system architecture
+  </Card>
+  <Card title="Tech Stack" icon="layer-group" href="/architecture/tech-stack">
+    Explore the complete technology stack
+  </Card>
+</CardGroup>

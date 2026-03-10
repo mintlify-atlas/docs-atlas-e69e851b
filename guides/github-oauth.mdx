@@ -1,0 +1,486 @@
+---
+title: GitHub OAuth
+description: Connect your GitHub account to scan private repositories and create fix PRs
+---
+
+GitHub OAuth authentication allows i18n Doctor to access your private repositories and automatically create pull requests with translation fixes. This guide explains how the integration works and how to connect your account.
+
+## Why GitHub OAuth?
+
+<CardGroup cols={2}>
+  <Card title="Private Repositories" icon="lock">
+    Scan your private repos without making them public
+  </Card>
+  <Card title="Create PRs" icon="code-pull-request">
+    Automatically open PRs with Lingo.dev translation fixes
+  </Card>
+  <Card title="Higher Rate Limits" icon="gauge-high">
+    5,000 API requests/hour vs 60 for unauthenticated
+  </Card>
+  <Card title="Team Repositories" icon="users">
+    Access organization repos you're a member of
+  </Card>
+</CardGroup>
+
+## How It Works
+
+<Steps>
+
+<Step title="User initiates connection">
+  Click "Connect GitHub" in the i18n Doctor dashboard.
+</Step>
+
+<Step title="GitHub authorization">
+  You're redirected to GitHub to authorize i18n Doctor. Review the requested permissions:
+  
+  - `repo` - Access private repositories
+  - `read:user` - Read your profile information
+  - `read:org` - Access organization memberships (optional)
+</Step>
+
+<Step title="Token stored securely">
+  GitHub redirects back to i18n Doctor with an OAuth token. This token is:
+  
+  - Encrypted at rest in the database
+  - Never exposed to the browser
+  - Only used server-side for API calls
+  - Automatically refreshed when needed
+</Step>
+
+<Step title="Access granted">
+  You can now scan private repos and create fix PRs.
+</Step>
+
+</Steps>
+
+<Info>
+i18n Doctor uses GitHub OAuth via Supabase Auth, which handles token encryption and secure storage.
+</Info>
+
+## Connecting Your Account
+
+### First-Time Setup
+
+<Steps>
+
+<Step title="Navigate to settings">
+  From the i18n Doctor dashboard:
+  1. Click your avatar (top right)
+  2. Select **Settings** or **Profile**
+</Step>
+
+<Step title="Connect GitHub">
+  In the Integrations section:
+  1. Click **Connect GitHub**
+  2. You'll be redirected to GitHub's authorization page
+</Step>
+
+<Step title="Review permissions">
+  GitHub will show the permissions i18n Doctor is requesting:
+  
+  ```
+  This application will be able to:
+  
+  ✓ Read and write access to code
+  ✓ Read access to metadata
+  ✓ Read access to organization membership
+  ```
+  
+  Click **Authorize i18n-doctor**.
+</Step>
+
+<Step title="Confirmation">
+  You'll be redirected back to i18n Doctor. A success message confirms the connection.
+</Step>
+
+</Steps>
+
+<Tip>
+You can disconnect and reconnect your GitHub account at any time from the Settings page.
+</Tip>
+
+## Permissions Explained
+
+### Required Scopes
+
+i18n Doctor requests the following OAuth scopes:
+
+<Accordion title="repo (Repository access)">
+  **What it allows**:
+  - Read repository content (files, branches, commit history)
+  - List your private repositories
+  - Create pull requests
+  - Push commits to branches (for PR creation)
+  
+  **What i18n Doctor uses it for**:
+  - Scanning private repositories for locale files
+  - Creating fix branches
+  - Opening PRs with Lingo.dev translations
+  
+  **What i18n Doctor does NOT do**:
+  - Delete repositories
+  - Modify existing commits
+  - Access repository settings
+  - Merge or close pull requests
+</Accordion>
+
+<Accordion title="read:user (User profile)">
+  **What it allows**:
+  - Read your public GitHub profile
+  - Access your email addresses
+  - View profile details (name, avatar, bio)
+  
+  **What i18n Doctor uses it for**:
+  - Displaying your name and avatar in the dashboard
+  - Associating scan reports with your account
+  - Showing your public repos in the repo selector
+  
+  **What i18n Doctor does NOT do**:
+  - Modify your profile
+  - Post on your behalf
+  - Access private profile data beyond basic info
+</Accordion>
+
+<Accordion title="read:org (Organization membership)">
+  **What it allows**:
+  - View organizations you're a member of
+  - List organization repositories
+  - Check team memberships
+  
+  **What i18n Doctor uses it for**:
+  - Showing organization repos in the repo selector
+  - Scanning repos from your organizations
+  - Filtering repos you have access to
+  
+  **What i18n Doctor does NOT do**:
+  - Modify organization settings
+  - Add/remove organization members
+  - Create or delete organization repos
+</Accordion>
+
+<Warning>
+i18n Doctor requests the **minimum necessary permissions**. We never request admin or destructive permissions like `delete:repo` or `admin:org`.
+</Warning>
+
+## Using OAuth Features
+
+### Scanning Private Repositories
+
+Once connected, you can scan private repos just like public ones:
+
+<Steps>
+
+<Step title="Paste repo URL">
+  ```
+  https://github.com/your-org/private-repo
+  ```
+  
+  Or use the shorthand:
+  
+  ```
+  your-org/private-repo
+  ```
+</Step>
+
+<Step title="Automatic authentication">
+  i18n Doctor automatically uses your OAuth token to access the repo. No additional configuration needed.
+</Step>
+
+<Step title="View scan results">
+  The scan proceeds exactly like public repos, with full access to all branches and files.
+</Step>
+
+</Steps>
+
+<Info>
+If you're not connected to GitHub and try to scan a private repo, you'll see an error message with a prompt to connect your account.
+</Info>
+
+### Creating Fix PRs (Planned)
+
+The one-click fix feature will use your OAuth token to:
+
+1. **Create a new branch** (e.g., `i18n-doctor/fix-2024-03-10`)
+2. **Commit translated files** with a descriptive message
+3. **Open a pull request** with:
+   - Summary of changes (coverage improvements)
+   - List of translated keys per locale
+   - Link to the original scan report
+
+<Note>
+**Planned Feature**: Automatic PR creation is currently in development and will be available in a future release.
+</Note>
+
+## Security & Privacy
+
+### How Tokens Are Protected
+
+<Steps>
+
+<Step title="Encrypted storage">
+  OAuth tokens are encrypted using AES-256 before being stored in the database. The encryption key is stored separately in environment variables, never in the codebase.
+</Step>
+
+<Step title="Server-side only">
+  Tokens are NEVER sent to your browser. All GitHub API calls are made server-side from i18n Doctor's backend.
+</Step>
+
+<Step title="Automatic expiration">
+  GitHub OAuth tokens have limited lifespans. i18n Doctor automatically refreshes them or prompts you to reconnect if they expire.
+</Step>
+
+<Step title="Revocation">
+  You can revoke access at any time:
+  - From i18n Doctor: Settings > Disconnect GitHub
+  - From GitHub: Settings > Applications > Authorized OAuth Apps > Revoke
+</Step>
+
+</Steps>
+
+### What i18n Doctor Can Access
+
+| Data | Access |
+|------|--------|
+| **Public repos** | ✓ Read files and metadata |
+| **Private repos** | ✓ Read files and metadata (only if you grant access) |
+| **Your profile** | ✓ Read basic info (name, avatar, email) |
+| **Organization repos** | ✓ Read files (only repos you can access) |
+| **Secrets & tokens** | ✗ No access (not requested) |
+| **Repository settings** | ✗ No access (not requested) |
+| **GitHub Actions** | ✗ No access (not requested) |
+| **Admin permissions** | ✗ No access (not requested) |
+
+<Tip>
+i18n Doctor follows the **Principle of Least Privilege** - we only request permissions that are absolutely necessary for the features we provide.
+</Tip>
+
+### Data Retention
+
+When you connect your GitHub account:
+
+- **OAuth token**: Stored encrypted until you disconnect
+- **Profile data**: Cached for 24 hours, then refreshed
+- **Scan results**: Stored permanently (associated with your account)
+- **Repository content**: NOT stored - fetched on-demand for each scan
+
+**What happens when you disconnect?**
+- OAuth token is immediately deleted from the database
+- Cached profile data is cleared
+- Past scan results remain accessible (your work is not lost)
+- You can reconnect at any time to restore access
+
+## Rate Limits
+
+### Unauthenticated (No OAuth)
+
+- **60 requests per hour** - Shared across all requests from your IP
+- Only public repositories
+- Rate limit resets every hour
+
+**This is sufficient for**:
+- Small public repos
+- Occasional scans
+- Testing i18n Doctor
+
+### Authenticated (With OAuth)
+
+- **5,000 requests per hour** - Personal to your GitHub account
+- Access to private repositories
+- Rate limit resets every hour
+
+**This allows for**:
+- Large monorepos with hundreds of files
+- Frequent scanning
+- Organization repositories
+- Running scans in CI/CD
+
+<Info>
+Rate limits are enforced by GitHub, not i18n Doctor. If you hit the limit, you'll see a clear error message with a reset time.
+</Info>
+
+### Checking Your Rate Limit
+
+GitHub provides rate limit headers with every API response. i18n Doctor displays your remaining requests in the dashboard:
+
+```
+GitHub API: 4,847 / 5,000 requests remaining
+Resets at: 2:30 PM (in 45 minutes)
+```
+
+## Troubleshooting
+
+<Accordion title="GitHub authorization fails">
+  **Symptoms**: Redirected back to i18n Doctor without connecting
+  
+  **Solutions**:
+  1. Check that you're logged into GitHub
+  2. Disable browser extensions (ad blockers, privacy tools) that might block OAuth
+  3. Ensure cookies are enabled for github.com and i18n.doctor
+  4. Try in an incognito/private window
+  5. Clear your browser cache and try again
+</Accordion>
+
+<Accordion title="Can't scan private repo after connecting">
+  **Symptoms**: "Repository not found" error for private repos
+  
+  **Solutions**:
+  1. Verify you have at least **read** access to the repo on GitHub
+  2. For organization repos, ensure the organization has authorized i18n Doctor:
+     - Go to GitHub > Settings > Organizations > [Your Org]
+     - Click "Third-party access"
+     - Approve i18n Doctor if it's pending
+  3. Try disconnecting and reconnecting your GitHub account
+  4. Check if the repo exists and the URL is correct
+</Accordion>
+
+<Accordion title="Rate limit exceeded after connecting">
+  **Symptoms**: 403 error with "rate limit exceeded" message
+  
+  **Solutions**:
+  1. Wait until the rate limit resets (shown in the error message)
+  2. Verify your OAuth connection is active (Settings > Integrations)
+  3. If you're making many API calls outside i18n Doctor, they count toward your limit
+  4. For extremely large repos, scan during off-peak hours
+</Accordion>
+
+<Accordion title="Token expired">
+  **Symptoms**: "Unauthorized" or "bad credentials" errors
+  
+  **Solutions**:
+  1. Go to Settings > Integrations
+  2. Click "Reconnect GitHub"
+  3. Authorize again on GitHub
+  
+  This refreshes your OAuth token.
+</Accordion>
+
+<Accordion title="Organization repos not showing">
+  **Symptoms**: Can't see repos from your organization
+  
+  **Solutions**:
+  1. Ensure you granted the `read:org` scope during authorization
+  2. Check that your organization has approved i18n Doctor:
+     - GitHub > Settings > Organizations > [Your Org] > Third-party access
+     - Click "Grant access" next to i18n Doctor
+  3. Some organizations have strict OAuth app policies - contact your org admin
+</Accordion>
+
+## Organization Approval
+
+If you're part of a GitHub organization with strict OAuth policies:
+
+<Steps>
+
+<Step title="Request approval">
+  After connecting your GitHub account, you may see:
+  
+  ```
+  i18n Doctor is pending approval from [Organization Name]
+  ```
+</Step>
+
+<Step title="Admin approves">
+  An organization admin must:
+  1. Go to GitHub > Settings > Organizations > [Your Org]
+  2. Click "Third-party access"
+  3. Find i18n Doctor in the pending list
+  4. Click "Review" and approve
+</Step>
+
+<Step title="Access granted">
+  Once approved, you can scan organization repos.
+</Step>
+
+</Steps>
+
+<Warning>
+Some organizations **block all third-party OAuth apps by default**. If your org has this policy, you'll need to ask an admin to explicitly allow i18n Doctor.
+</Warning>
+
+## Revoking Access
+
+### From i18n Doctor
+
+<Steps>
+<Step title="Go to Settings">
+  Click your avatar > Settings
+</Step>
+
+<Step title="Disconnect GitHub">
+  In the Integrations section, click **Disconnect**
+</Step>
+
+<Step title="Confirm">
+  Your OAuth token is immediately deleted from the database.
+</Step>
+</Steps>
+
+### From GitHub
+
+<Steps>
+<Step title="GitHub Settings">
+  Go to github.com/settings/applications
+</Step>
+
+<Step title="Find i18n Doctor">
+  Click the **Authorized OAuth Apps** tab
+</Step>
+
+<Step title="Revoke">
+  Click **Revoke** next to i18n Doctor
+</Step>
+</Steps>
+
+<Info>
+Revoking from GitHub also invalidates the token in i18n Doctor. You'll need to reconnect if you want to use OAuth features again.
+</Info>
+
+## Best Practices
+
+<Steps>
+
+<Step title="Use OAuth for private repos">
+  If you need to scan private repos, connect your GitHub account. Don't try workarounds like making repos temporarily public - this creates security risks.
+</Step>
+
+<Step title="Review permissions before authorizing">
+  Always check what permissions an OAuth app requests. i18n Doctor should only ask for `repo`, `read:user`, and `read:org`.
+</Step>
+
+<Step title="Keep tokens secure">
+  Never share your OAuth token or session cookies. i18n Doctor never asks for your GitHub password or personal access tokens.
+</Step>
+
+<Step title="Periodically review authorized apps">
+  Go to github.com/settings/applications and review your OAuth apps every few months. Revoke access to apps you no longer use.
+</Step>
+
+</Steps>
+
+## Privacy Policy
+
+i18n Doctor is committed to protecting your privacy:
+
+- **No data selling**: We never sell or share your GitHub data
+- **Minimal collection**: We only access what's necessary for scanning
+- **User control**: You can disconnect and delete your data at any time
+- **Transparency**: All permissions are explained clearly before authorization
+
+All data handling follows security best practices and industry standards for OAuth token management.
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Lingo.dev Integration" icon="language" href="/guides/lingo-integration">
+    Learn about AI-powered translation fixes
+  </Card>
+  <Card title="Understanding Reports" icon="chart-line" href="/guides/understanding-reports">
+    Interpret your scan results and prioritize fixes
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [GitHub OAuth Documentation](https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps)
+- [Supabase Auth (GitHub)](https://supabase.com/docs/guides/auth/social-login/auth-github)
+- [Managing OAuth App Access](https://docs.github.com/en/apps/oauth-apps/using-oauth-apps/reviewing-your-authorized-applications-oauth)

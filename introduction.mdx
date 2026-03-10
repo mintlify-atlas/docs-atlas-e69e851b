@@ -1,0 +1,185 @@
+---
+title: Introduction
+description: Find and fix broken translations in your GitHub repositories
+---
+
+## What is i18n Doctor?
+
+i18n Doctor is a **web-based localization health scanner** that analyzes public GitHub repositories for translation issues. Paste any repo URL, and within seconds you'll see exactly which translations are broken, missing, or incomplete — no CLI tools or local setup required.
+
+<Note>
+  **Live at [i18n.doctor](https://i18n.doctor)** — Scan any public GitHub repository instantly
+</Note>
+
+## The Problem
+
+Developers ship apps with broken internationalization (i18n) all the time:
+
+- **New UI strings go untranslated** — You add `"welcome.title"` to `en.json` but forget to update `fr.json`, `es.json`, and 8 other locales
+- **Coverage is inconsistent** — Some locales have 90% coverage while others sit at 40%
+- **Unused keys pile up silently** — Old translation keys remain in files long after the feature is removed
+- **No visibility until production** — Users in non-English locales see missing text or English fallbacks
+
+Existing tools require local setup, CLI installation, and manual diffing. i18n Doctor **runs in your browser** and shows a complete health report in seconds.
+
+## How i18n Doctor Solves It
+
+i18n Doctor scans your repository and provides:
+
+<CardGroup cols={2}>
+  <Card title="Auto-Detection" icon="magnifying-glass">
+    Automatically finds locale files in common patterns like `locales/`, `i18n/`, `messages/`, and `public/locales/`. Supports JSON, YAML, and `.po` formats.
+  </Card>
+  
+  <Card title="Health Reports" icon="chart-bar">
+    Visual dashboard with per-locale coverage percentages, progress bars, and summary cards showing total keys, missing translations, and orphan keys.
+  </Card>
+  
+  <Card title="Issue Breakdown" icon="exclamation-triangle">
+    Detailed lists of missing keys, untranslated strings (empty values), and orphan keys (exist in target but not in source).
+  </Card>
+  
+  <Card title="One-Click Fixes" icon="wrench">
+    Integration with Lingo.dev to translate all missing strings instantly. Download fixed files or open a GitHub PR directly.
+  </Card>
+</CardGroup>
+
+## Key Features
+
+### Repo Scanner
+
+Auto-detects locale/translation files in common directory patterns:
+
+```plaintext
+✓ locales/en.json, locales/fr.json           (flat structure)
+✓ locales/en/common.json, locales/fr/common.json  (nested structure)
+✓ i18n/en.yaml, public/locales/pt-BR.yaml
+✓ messages/en.po, lang/es.po
+```
+
+### Health Dashboard
+
+Visual breakdown with:
+- **Coverage percentage** per locale (colored progress bars)
+- **Summary cards** — total keys, avg coverage, missing/untranslated/orphan counts
+- **Per-locale cards** — expandable details with specific key lists
+
+### Format Support
+
+Parses multiple translation file formats:
+
+<Tabs>
+  <Tab title="JSON">
+    ```json
+    {
+      "welcome": {
+        "title": "Welcome",
+        "subtitle": "Get started below"
+      }
+    }
+    ```
+    Nested keys are flattened to `welcome.title`, `welcome.subtitle`
+  </Tab>
+  
+  <Tab title="YAML">
+    ```yaml
+    welcome:
+      title: Welcome
+      subtitle: Get started below
+    ```
+    Handles nested structures with proper indentation
+  </Tab>
+  
+  <Tab title="PO (gettext)">
+    ```po
+    msgid "welcome.title"
+    msgstr "Welcome"
+
+    msgid "welcome.subtitle"
+    msgstr "Get started below"
+    ```
+    Extracts `msgid` as key and `msgstr` as translation
+  </Tab>
+</Tabs>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Pre-Release Audits">
+    Scan your repo before shipping a new release to catch missing translations. Avoid releasing features where half your locales are incomplete.
+  </Accordion>
+  
+  <Accordion title="Open Source Contributions">
+    Contributors can scan a project to see which locales need translation help. Maintainers can validate PR submissions.
+  </Accordion>
+  
+  <Accordion title="Translation Coverage Benchmarks">
+    Compare multiple repos (use the Leaderboard feature) to see how your i18n setup stacks up against similar projects.
+  </Accordion>
+  
+  <Accordion title="CI/CD Integration">
+    Use the scan API endpoint in GitHub Actions to fail builds when coverage drops below a threshold.
+  </Accordion>
+</AccordionGroup>
+
+## Example Report
+
+Here's what a scan looks like for a repo with `locales/en.json`, `locales/fr.json`, and `locales/es.json`:
+
+<Frame>
+  <div className="space-y-4 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+    <div className="grid grid-cols-4 gap-2 text-sm">
+      <div><strong>Total Keys:</strong> 42</div>
+      <div><strong>Avg Coverage:</strong> 78%</div>
+      <div><strong>Missing:</strong> 12</div>
+      <div><strong>Orphan:</strong> 3</div>
+    </div>
+    
+    <div className="space-y-2">
+      <div>
+        <div className="flex justify-between text-sm mb-1">
+          <span className="font-mono">fr</span>
+          <span>85% coverage</span>
+        </div>
+        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-yellow-500" style={{width: '85%'}} />
+        </div>
+      </div>
+      
+      <div>
+        <div className="flex justify-between text-sm mb-1">
+          <span className="font-mono">es</span>
+          <span>71% coverage</span>
+        </div>
+        <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+          <div className="h-full bg-red-500" style={{width: '71%'}} />
+        </div>
+      </div>
+    </div>
+  </div>
+</Frame>
+
+## Lingo.dev Integration
+
+All translation fixes are powered by **Lingo.dev**, a multilingual translation platform:
+
+- **Instant translation** — Missing keys are translated to all target locales in seconds
+- **Context-aware** — Uses the source locale and key names for accurate translations
+- **Downloadable fixes** — Get a ZIP file with updated locale files
+- **GitHub PR generation** — Automatically create a pull request with fixes (coming soon)
+
+<Tip>
+  i18n Doctor itself is multilingual and uses Lingo.dev for its own translations — we dogfood our own solution.
+</Tip>
+
+## What's Next?
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Learn how to scan your first repository and understand the results
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/scan">
+    Integrate the scan API into your CI/CD pipeline
+  </Card>
+</CardGroup>

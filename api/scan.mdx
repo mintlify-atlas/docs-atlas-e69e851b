@@ -1,0 +1,407 @@
+---
+title: "POST /api/scan"
+description: "Scan a GitHub repository for i18n issues and missing translations"
+---
+
+## Endpoint
+
+```
+POST https://i18n.doctor/api/scan
+```
+
+**Timeout**: 30 seconds (Vercel hobby tier limit)
+
+Scans a public GitHub repository to detect locale files, analyze translation coverage, and identify missing keys, untranslated strings, and orphan keys across all supported locales.
+
+## Request Body
+
+<ParamField body="repo" type="string" required>
+  GitHub repository URL or shorthand identifier. Accepts the following formats:
+  
+  - Full URL: `https://github.com/owner/repo`
+  - Full URL with branch: `https://github.com/owner/repo/tree/branch`
+  - Shorthand: `owner/repo`
+  
+  The endpoint will use the default branch if no branch is specified.
+</ParamField>
+
+### Request Example
+
+```bash
+curl -X POST https://i18n.doctor/api/scan \
+  -H "Content-Type: application/json" \
+  -d '{
+    "repo": "https://github.com/acme/my-app"
+  }'
+```
+
+```javascript
+const response = await fetch('https://i18n.doctor/api/scan', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  body: JSON.stringify({
+    repo: 'acme/my-app'
+  })
+});
+
+const data = await response.json();
+```
+
+## Response
+
+<ResponseField name="repo" type="object">
+  Repository metadata
+  
+  <Expandable title="properties">
+    <ResponseField name="owner" type="string">
+      Repository owner (GitHub username or organization)
+    </ResponseField>
+    
+    <ResponseField name="repo" type="string">
+      Repository name
+    </ResponseField>
+    
+    <ResponseField name="branch" type="string">
+      Branch that was scanned
+    </ResponseField>
+    
+    <ResponseField name="description" type="string | null">
+      Repository description from GitHub
+    </ResponseField>
+    
+    <ResponseField name="stars" type="number">
+      Number of GitHub stars
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="localeGroup" type="object">
+  Information about the detected locale file structure
+  
+  <Expandable title="properties">
+    <ResponseField name="basePath" type="string">
+      Base directory containing locale files (e.g., `"locales"`, `"src/i18n"`)
+    </ResponseField>
+    
+    <ResponseField name="style" type="string">
+      Pattern style of locale files:
+      - `"flat"` — Files like `locales/en.json`, `locales/fr.json`
+      - `"nested"` — Files like `locales/en/common.json`, `locales/fr/common.json`
+    </ResponseField>
+    
+    <ResponseField name="locales" type="string[]">
+      Array of detected locale codes (e.g., `["en", "fr", "es", "pt-br"]`)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+<ResponseField name="report" type="object">
+  Comprehensive translation health report
+  
+  <Expandable title="properties">
+    <ResponseField name="sourceLocale" type="string">
+      The reference locale used for comparison (typically `"en"`)
+    </ResponseField>
+    
+    <ResponseField name="totalSourceKeys" type="number">
+      Total number of translation keys in the source locale
+    </ResponseField>
+    
+    <ResponseField name="locales" type="array">
+      Per-locale health statistics
+      
+      <Expandable title="LocaleHealth properties">
+        <ResponseField name="locale" type="string">
+          Locale code
+        </ResponseField>
+        
+        <ResponseField name="totalKeys" type="number">
+          Total keys present in this locale
+        </ResponseField>
+        
+        <ResponseField name="translatedKeys" type="number">
+          Number of properly translated keys
+        </ResponseField>
+        
+        <ResponseField name="missingKeys" type="string[]">
+          Keys present in source but missing in this locale
+        </ResponseField>
+        
+        <ResponseField name="untranslatedKeys" type="string[]">
+          Keys that exist but have empty values
+        </ResponseField>
+        
+        <ResponseField name="orphanKeys" type="string[]">
+          Keys present in this locale but not in source (unused/leftover)
+        </ResponseField>
+        
+        <ResponseField name="coverage" type="number">
+          Translation coverage percentage (0-100)
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+    
+    <ResponseField name="summary" type="object">
+      Aggregated statistics across all locales
+      
+      <Expandable title="properties">
+        <ResponseField name="totalLocales" type="number">
+          Number of target locales analyzed
+        </ResponseField>
+        
+        <ResponseField name="avgCoverage" type="number">
+          Average coverage across all locales (0-100)
+        </ResponseField>
+        
+        <ResponseField name="totalMissing" type="number">
+          Total missing keys across all locales
+        </ResponseField>
+        
+        <ResponseField name="totalUntranslated" type="number">
+          Total untranslated keys across all locales
+        </ResponseField>
+        
+        <ResponseField name="totalOrphan" type="number">
+          Total orphan keys across all locales
+        </ResponseField>
+      </Expandable>
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+### Success Response Example
+
+```json
+{
+  "repo": {
+    "owner": "acme",
+    "repo": "my-app",
+    "branch": "main",
+    "description": "An example multilingual application",
+    "stars": 1234
+  },
+  "localeGroup": {
+    "basePath": "locales",
+    "style": "flat",
+    "locales": ["en", "fr", "es", "de"]
+  },
+  "report": {
+    "sourceLocale": "en",
+    "totalSourceKeys": 150,
+    "locales": [
+      {
+        "locale": "es",
+        "totalKeys": 120,
+        "translatedKeys": 115,
+        "missingKeys": ["home.new_feature", "settings.privacy"],
+        "untranslatedKeys": ["about.team_size"],
+        "orphanKeys": ["old.deprecated_key"],
+        "coverage": 77
+      },
+      {
+        "locale": "fr",
+        "totalKeys": 148,
+        "translatedKeys": 145,
+        "missingKeys": ["home.new_feature"],
+        "untranslatedKeys": [],
+        "orphanKeys": [],
+        "coverage": 97
+      },
+      {
+        "locale": "de",
+        "totalKeys": 150,
+        "translatedKeys": 150,
+        "missingKeys": [],
+        "untranslatedKeys": [],
+        "orphanKeys": [],
+        "coverage": 100
+      }
+    ],
+    "summary": {
+      "totalLocales": 3,
+      "avgCoverage": 91,
+      "totalMissing": 3,
+      "totalUntranslated": 1,
+      "totalOrphan": 1
+    }
+  }
+}
+```
+
+## Error Responses
+
+### 400 Bad Request
+
+Missing or invalid `repo` field in request body.
+
+```json
+{
+  "error": "Missing `repo` field"
+}
+```
+
+### 404 Not Found
+
+**Repository not found**
+
+```json
+{
+  "error": "Repository not found"
+}
+```
+
+**No locale files detected**
+
+Returned when the repository doesn't contain any recognizable translation files in supported formats (JSON, YAML, PO) or standard directories.
+
+```json
+{
+  "error": "No locale files found",
+  "hint": "We look for JSON/YAML/PO files in directories like locales/, i18n/, messages/, lang/, etc."
+}
+```
+
+### 422 Unprocessable Entity
+
+Source locale could not be parsed or is invalid.
+
+```json
+{
+  "error": "Source locale \"en\" could not be parsed"
+}
+```
+
+### 429 Too Many Requests
+
+GitHub API rate limit exceeded. This occurs when making too many requests to the GitHub API without authentication.
+
+```json
+{
+  "error": "GitHub API rate limit exceeded"
+}
+```
+
+### 500 Internal Server Error
+
+General server error or unexpected issue during scanning.
+
+```json
+{
+  "error": "Internal server error"
+}
+```
+
+## Supported File Formats
+
+The scanner automatically detects and parses locale files in the following formats:
+
+- **JSON** (`.json`)
+- **YAML** (`.yaml`, `.yml`)
+- **Gettext PO** (`.po`)
+
+## Supported Directory Patterns
+
+i18n Doctor searches for translation files in common directory structures:
+
+**Standard directories:**
+- `locales/`, `locale/`
+- `i18n/`
+- `lang/`, `languages/`
+- `translations/`
+- `messages/`
+
+**Framework-specific patterns:**
+- `public/locales/`, `public/locale/`, `public/i18n/`
+- `src/locales/`, `src/locale/`, `src/i18n/`, `src/lang/`, `src/messages/`, `src/translations/`
+- `app/i18n/`
+- `assets/i18n/`, `assets/locales/`
+
+**File structure styles:**
+
+<Tabs>
+  <Tab title="Flat">
+    Files named with locale codes:
+    ```
+    locales/en.json
+    locales/fr.json
+    locales/es.json
+    locales/pt-br.yaml
+    ```
+  </Tab>
+  <Tab title="Nested">
+    Locale subdirectories containing translation files:
+    ```
+    locales/en/common.json
+    locales/en/errors.json
+    locales/fr/common.json
+    locales/fr/errors.json
+    ```
+  </Tab>
+</Tabs>
+
+## Use Cases
+
+### Check Translation Coverage
+
+Quickly assess how complete your translations are across all supported locales:
+
+```typescript
+const { report } = await scanRepo('myorg/myapp');
+console.log(`Average coverage: ${report.summary.avgCoverage}%`);
+```
+
+### Identify Missing Keys
+
+Find which translation keys need to be added to specific locales:
+
+```typescript
+const { report } = await scanRepo('myorg/myapp');
+const frenchLocale = report.locales.find(l => l.locale === 'fr');
+console.log('Missing French translations:', frenchLocale.missingKeys);
+```
+
+### Detect Orphan Keys
+
+Clean up unused translation keys that exist in target locales but not in your source:
+
+```typescript
+const { report } = await scanRepo('myorg/myapp');
+for (const locale of report.locales) {
+  if (locale.orphanKeys.length > 0) {
+    console.log(`${locale.locale} has ${locale.orphanKeys.length} orphan keys`);
+  }
+}
+```
+
+### Pre-deployment Validation
+
+Ensure translations meet quality standards before deploying:
+
+```typescript
+const { report } = await scanRepo('myorg/myapp');
+const minCoverage = 95;
+
+for (const locale of report.locales) {
+  if (locale.coverage < minCoverage) {
+    throw new Error(
+      `${locale.locale} coverage (${locale.coverage}%) below threshold (${minCoverage}%)`
+    );
+  }
+}
+```
+
+### Monitor Translation Health
+
+Track translation quality over time by storing scan results:
+
+```typescript
+const result = await scanRepo('myorg/myapp');
+await db.insert({
+  timestamp: Date.now(),
+  avgCoverage: result.report.summary.avgCoverage,
+  totalMissing: result.report.summary.totalMissing,
+  locales: result.report.locales
+});
+```

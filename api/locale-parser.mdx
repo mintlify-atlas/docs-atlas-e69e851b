@@ -1,0 +1,474 @@
+---
+title: "Locale Parser"
+description: "Parse JSON, YAML, and PO locale files into flat key-value maps"
+icon: "brackets-curly"
+---
+
+## Overview
+
+The `locale-parser` module extracts translation keys and values from locale files in multiple formats (JSON, YAML, PO) and converts them into flat key-value maps for easy comparison.
+
+**Location**: `apps/www/lib/locale-parser.ts`
+
+### Features
+
+- Parse JSON, YAML, and PO (gettext) files
+- Flatten nested JSON structures with dot notation
+- Handle multi-line values and escape sequences
+- Preserve empty values (untranslated strings)
+- Support for arrays and primitive types
+
+---
+
+## Functions
+
+### parseLocaleFile
+
+Parse a locale file's content into a flat key-value map. The format is automatically detected from the file extension.
+
+```typescript
+function parseLocaleFile(content: string, filePath: string): KeyMap
+```
+
+<ParamField path="content" type="string" required>
+  The raw text content of the locale file
+</ParamField>
+
+<ParamField path="filePath" type="string" required>
+  The file path, used to determine the format from the extension (`.json`, `.yaml`, `.yml`, or `.po`)
+</ParamField>
+
+<ResponseField name="KeyMap" type="Record<string, string>">
+  A flat map of translation keys to values. Nested keys are flattened with dot notation (e.g., `"user.name"`). Empty strings indicate untranslated keys.
+</ResponseField>
+
+#### Supported Formats
+
+<CardGroup cols={3}>
+  <Card title="JSON" icon="brackets-curly">
+    `.json` — Nested JSON objects
+  </Card>
+  <Card title="YAML" icon="file-lines">
+    `.yaml`, `.yml` — YAML with one-level nesting
+  </Card>
+  <Card title="PO" icon="language">
+    `.po` — GNU gettext PO files
+  </Card>
+</CardGroup>
+
+#### Example: JSON
+
+```json title="locales/en.json"
+{
+  "welcome": "Welcome",
+  "user": {
+    "name": "Name",
+    "email": "Email"
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalid": "Invalid input"
+  }
+}
+```
+
+```typescript
+import { parseLocaleFile } from "@/lib/locale-parser"
+import { getFileContent } from "@/lib/github"
+
+const content = await getFileContent("owner", "repo", "main", "locales/en.json")
+const keys = parseLocaleFile(content, "locales/en.json")
+
+console.log(keys)
+// {
+//   "welcome": "Welcome",
+//   "user.name": "Name",
+//   "user.email": "Email",
+//   "errors.required": "This field is required",
+//   "errors.invalid": "Invalid input"
+// }
+```
+
+#### Example: YAML
+
+```yaml title="locales/en.yaml"
+welcome: Welcome
+user:
+  name: Name
+  email: Email
+errors:
+  required: This field is required
+  invalid: Invalid input
+```
+
+```typescript
+const content = await getFileContent("owner", "repo", "main", "locales/en.yaml")
+const keys = parseLocaleFile(content, "locales/en.yaml")
+
+console.log(keys)
+// {
+//   "welcome": "Welcome",
+//   "user.name": "Name",
+//   "user.email": "Email",
+//   "errors.required": "This field is required",
+//   "errors.invalid": "Invalid input"
+// }
+```
+
+<Info>
+The YAML parser is lightweight and supports flat and one-level nested structures. For complex YAML files with deep nesting, consider using a full YAML parser library.
+</Info>
+
+#### Example: PO (gettext)
+
+```po title="locale/en.po"
+msgid ""
+msgstr ""
+
+msgid "welcome"
+msgstr "Welcome"
+
+msgid "user.name"
+msgstr "Name"
+
+msgid "user.email"
+msgstr "Email"
+```
+
+```typescript
+const content = await getFileContent("owner", "repo", "main", "locale/en.po")
+const keys = parseLocaleFile(content, "locale/en.po")
+
+console.log(keys)
+// {
+//   "welcome": "Welcome",
+//   "user.name": "Name",
+//   "user.email": "Email"
+// }
+```
+
+#### Errors
+
+```typescript
+try {
+  const keys = parseLocaleFile(content, filePath)
+} catch (error) {
+  // JSON: SyntaxError if invalid JSON
+  // YAML: Silent failure for malformed YAML (keys are skipped)
+  // PO: Silent failure for malformed entries
+  // Unsupported format: "Unsupported file format: {filePath}"
+}
+```
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:52-56`:
+
+```typescript
+const fetchPromises = Object.entries(group.files).flatMap(
+  ([locale, filePaths]) =>
+    filePaths.map(async (filePath) => {
+      try {
+        const content = await getFileContent(owner, repo, branch, filePath)
+        const keys = parseLocaleFile(content, filePath)
+        // Merge into locale's key map (supports multiple files per locale)
+        if (!keyMaps[locale]) keyMaps[locale] = {}
+        Object.assign(keyMaps[locale], keys)
+      } catch (err) {
+        console.warn(`Failed to parse ${filePath}:`, err)
+      }
+    })
+)
+await Promise.all(fetchPromises)
+```
+
+---
+
+## Types
+
+### KeyMap
+
+Flat map of translation keys to values.
+
+```typescript
+type KeyMap = Record<string, string>
+```
+
+- **Keys**: Dot-notation path (e.g., `"user.name"`, `"errors.required"`)
+- **Values**: Translated string (empty string `""` indicates untranslated key)
+
+#### Example
+
+```typescript
+const keyMap: KeyMap = {
+  "welcome": "Welcome",
+  "user.name": "Name",
+  "user.email": "Email",
+  "errors.required": "", // ← Untranslated
+}
+```
+
+---
+
+## Flattening Behavior
+
+### Nested Objects
+
+Nested objects are flattened with dot notation:
+
+```json
+{
+  "a": {
+    "b": {
+      "c": "value"
+    }
+  }
+}
+```
+
+```typescript
+// Result:
+{
+  "a.b.c": "value"
+}
+```
+
+### Arrays
+
+Arrays are flattened with numeric indices:
+
+```json
+{
+  "items": ["first", "second", "third"]
+}
+```
+
+```typescript
+// Result:
+{
+  "items.0": "first",
+  "items.1": "second",
+  "items.2": "third"
+}
+```
+
+### Primitive Types
+
+Primitive types (string, number, boolean) are converted to strings:
+
+```json
+{
+  "name": "John",
+  "age": 30,
+  "active": true
+}
+```
+
+```typescript
+// Result:
+{
+  "name": "John",
+  "age": "30",
+  "active": "true"
+}
+```
+
+### Empty Values
+
+Empty strings are preserved (indicates untranslated key):
+
+```json
+{
+  "welcome": "Welcome",
+  "goodbye": ""
+}
+```
+
+```typescript
+// Result:
+{
+  "welcome": "Welcome",
+  "goodbye": "" // ← Untranslated
+}
+```
+
+---
+
+## Format-Specific Details
+
+### JSON Parser
+
+Uses `JSON.parse()` with recursive flattening.
+
+```typescript
+function parseJson(content: string): KeyMap {
+  const data = JSON.parse(content)
+  return flattenJson(data)
+}
+```
+
+**Features:**
+- Full JSON5 support (via native parser)
+- Deep nesting (unlimited depth)
+- Array indexing
+- Type coercion (numbers/booleans → strings)
+
+**Limitations:**
+- Strict JSON syntax (no comments, trailing commas)
+- Large files may impact performance
+
+### YAML Parser
+
+Lightweight line-based parser for flat and one-level nested structures.
+
+```typescript
+function parseYaml(content: string): KeyMap
+```
+
+**Features:**
+- Flat keys: `key: value`
+- One-level nesting: `parent:\n  child: value`
+- Comment support: `# comment`
+- Quote handling: `'value'`, `"value"`
+
+**Limitations:**
+- Maximum one level of nesting (deeper nesting is not supported)
+- No support for arrays, anchors, or advanced YAML features
+- Indentation-sensitive
+
+<Warning>
+For complex YAML files with deep nesting or advanced features, consider using a full YAML parser library like `js-yaml`.
+</Warning>
+
+### PO (gettext) Parser
+
+Parses GNU gettext PO files.
+
+```typescript
+function parsePo(content: string): KeyMap
+```
+
+**Features:**
+- `msgid` / `msgstr` extraction
+- Multi-line string concatenation
+- Comment skipping (`#` lines)
+- Empty header entry handling
+
+**Limitations:**
+- No support for plural forms (`msgid_plural`, `msgstr[0]`)
+- No context handling (`msgctxt`)
+- Basic escape sequence support
+
+---
+
+## Merging Multiple Files
+
+When a locale has multiple files (e.g., `en/common.json`, `en/errors.json`), merge them into a single `KeyMap`:
+
+```typescript
+import { parseLocaleFile } from "@/lib/locale-parser"
+
+const files = [
+  "locales/en/common.json",
+  "locales/en/errors.json",
+]
+
+const mergedKeys: KeyMap = {}
+
+for (const filePath of files) {
+  const content = await getFileContent(owner, repo, branch, filePath)
+  const keys = parseLocaleFile(content, filePath)
+  Object.assign(mergedKeys, keys)
+}
+
+console.log(mergedKeys)
+// {
+//   "welcome": "Welcome",        // from common.json
+//   "user.name": "Name",         // from common.json
+//   "error.required": "Required", // from errors.json
+//   "error.invalid": "Invalid"   // from errors.json
+// }
+```
+
+<Tip>
+If there are duplicate keys across files, later files overwrite earlier ones. Use a unique namespace per file to avoid conflicts.
+</Tip>
+
+---
+
+## Complete Example
+
+```typescript
+import { getFileContent } from "@/lib/github"
+import { parseLocaleFile, type KeyMap } from "@/lib/locale-parser"
+
+async function parseAllLocales(
+  owner: string,
+  repo: string,
+  branch: string,
+  localeFiles: Record<string, string[]>
+): Promise<Record<string, KeyMap>> {
+  const keyMaps: Record<string, KeyMap> = {}
+
+  const promises = Object.entries(localeFiles).flatMap(
+    ([locale, filePaths]) =>
+      filePaths.map(async (filePath) => {
+        try {
+          // 1. Fetch file content
+          const content = await getFileContent(owner, repo, branch, filePath)
+          
+          // 2. Parse to flat key map
+          const keys = parseLocaleFile(content, filePath)
+          
+          // 3. Merge into locale's key map
+          if (!keyMaps[locale]) keyMaps[locale] = {}
+          Object.assign(keyMaps[locale], keys)
+          
+          console.log(`✅ Parsed ${filePath} (${Object.keys(keys).length} keys)`)
+        } catch (err) {
+          console.error(`❌ Failed to parse ${filePath}:`, err)
+        }
+      })
+  )
+
+  await Promise.all(promises)
+  return keyMaps
+}
+
+// Usage
+const localeFiles = {
+  "en": ["locales/en/common.json", "locales/en/errors.json"],
+  "fr": ["locales/fr/common.json", "locales/fr/errors.json"],
+  "es": ["locales/es/common.json", "locales/es/errors.json"],
+}
+
+const keyMaps = await parseAllLocales("owner", "repo", "main", localeFiles)
+
+console.log(Object.keys(keyMaps["en"]).length) // Total keys in English
+```
+
+---
+
+## Performance Considerations
+
+### JSON Files
+
+- **Fast**: Uses native `JSON.parse()`
+- **Memory**: Entire file loaded into memory
+- **Recommendation**: Suitable for files up to several MB
+
+### YAML Files
+
+- **Moderate**: Line-by-line parsing
+- **Memory**: Low memory footprint
+- **Recommendation**: Best for simple, flat structures
+
+### PO Files
+
+- **Moderate**: Entry-based parsing
+- **Memory**: Low memory footprint
+- **Recommendation**: Suitable for standard gettext catalogs
+
+<Tip>
+For very large locale files (>10 MB), consider streaming parsers or chunked processing.
+</Tip>

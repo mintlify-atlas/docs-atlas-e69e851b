@@ -1,0 +1,277 @@
+---
+title: 'One-Click Fix'
+description: 'Automatically translate missing keys with Lingo.dev integration'
+---
+
+i18n Doctor integrates with [Lingo.dev](https://lingo.dev) to provide instant automated translation of missing and untranslated keys across all your locales.
+
+<Note>
+The one-click fix feature is currently in **development**. The integration with Lingo.dev is referenced in the marketing copy but not yet implemented in the codebase.
+</Note>
+
+## How It Works (Planned)
+
+When you click the "Fix with Lingo.dev" button on a health report, i18n Doctor will:
+
+<Steps>
+  <Step title="Identify Missing Translations">
+    Collect all missing and untranslated keys across all target locales from your health report.
+  </Step>
+  <Step title="Send to Lingo.dev">
+    Submit the source locale keys along with their values to Lingo.dev's translation API, specifying each target locale code.
+  </Step>
+  <Step title="Receive Translations">
+    Lingo.dev uses AI-powered translation models to generate contextually appropriate translations for each locale.
+  </Step>
+  <Step title="Download or Create PR">
+    Choose to either download the updated translation files as a ZIP archive or create a pull request directly to your repository.
+  </Step>
+</Steps>
+
+## Translation Quality
+
+Lingo.dev provides professional-grade machine translations with:
+
+<CardGroup cols={2}>
+  <Card title="Context Awareness" icon="brain">
+    Understands technical terminology, brand names, and UI conventions to produce natural-sounding translations.
+  </Card>
+  <Card title="Format Preservation" icon="code">
+    Maintains placeholders, interpolations, and special formatting like `{{variable}}` or `%s` in translated strings.
+  </Card>
+  <Card title="Plural Forms" icon="list">
+    Handles locale-specific plural rules for languages with complex pluralization (Arabic, Russian, Polish, etc.).
+  </Card>
+  <Card title="Consistency" icon="check-double">
+    Ensures consistent terminology across all translation keys within the same project.
+  </Card>
+</CardGroup>
+
+## What Gets Translated
+
+The fix operation translates:
+
+### Missing Keys
+
+Keys that exist in the source locale but are completely absent from target locales:
+
+```json
+// Before fix - fr.json
+{
+  "welcome": "Bienvenue"
+}
+
+// After fix - fr.json  
+{
+  "welcome": "Bienvenue",
+  "goodbye": "Au revoir",  // ← Added
+  "help": "Aide"           // ← Added
+}
+```
+
+### Untranslated Keys
+
+Keys that exist but have empty string values:
+
+```json
+// Before fix - de.json
+{
+  "welcome": "Willkommen",
+  "goodbye": ""
+}
+
+// After fix - de.json
+{
+  "welcome": "Willkommen",
+  "goodbye": "Auf Wiedersehen"  // ← Filled in
+}
+```
+
+### Nested Structures
+
+For JSON files with nested objects, the structure is preserved:
+
+```json
+// Before fix - es.json
+{
+  "auth": {
+    "login": "Iniciar sesión"
+  }
+}
+
+// After fix - es.json
+{
+  "auth": {
+    "login": "Iniciar sesión",
+    "logout": "Cerrar sesión",      // ← Added
+    "register": "Registrarse"       // ← Added
+  },
+  "errors": {                          // ← New section
+    "network": "Error de red"
+  }
+}
+```
+
+## Supported Formats
+
+The fix operation works with all formats detected by i18n Doctor:
+
+<Accordion title="JSON Files">
+  Updates are merged into the existing JSON structure, preserving indentation and formatting where possible. New keys are added in alphabetical order within their parent object.
+</Accordion>
+
+<Accordion title="YAML Files">
+  Maintains YAML formatting conventions including comments, indentation style (spaces), and key ordering. New translations are appended to the appropriate section.
+</Accordion>
+
+<Accordion title="PO Files">
+  Adds new `msgid`/`msgstr` pairs in the standard gettext format. Preserves existing metadata headers and translator comments.
+</Accordion>
+
+## Downloading Results
+
+After translation completes, you can download a ZIP archive containing:
+
+```
+i18n-doctor-fixes.zip
+├── locales/
+│   ├── en.json       (unchanged - source locale)
+│   ├── fr.json       (updated with new translations)
+│   ├── es.json       (updated with new translations)
+│   ├── de.json       (updated with new translations)
+│   └── ja.json       (updated with new translations)
+└── CHANGES.md        (summary of what was added)
+```
+
+The `CHANGES.md` file includes:
+- Number of keys added per locale
+- List of all new translation keys
+- Coverage improvement statistics
+
+### Manual Application
+
+To apply the fixes manually:
+
+1. Extract the ZIP archive
+2. Review the changes in `CHANGES.md`
+3. Copy the updated locale files to your project
+4. Commit and push to your repository
+
+## Creating Pull Requests
+
+Alternatively, i18n Doctor can create a pull request directly to your repository:
+
+<Steps>
+  <Step title="Authorize GitHub">
+    Grant i18n Doctor permission to create pull requests on your behalf using GitHub OAuth.
+  </Step>
+  <Step title="Generate Fixes">
+    i18n Doctor translates missing keys and prepares updated files.
+  </Step>
+  <Step title="Create PR">
+    A new branch is created with the fixes, and a pull request is opened with a detailed description of changes.
+  </Step>
+  <Step title="Review & Merge">
+    Review the auto-generated translations in the PR, make any necessary adjustments, and merge when ready.
+  </Step>
+</Steps>
+
+### Pull Request Details
+
+Auto-generated PRs include:
+
+- **Branch name:** `i18n-doctor-fix-{timestamp}`
+- **Title:** `fix: Add missing translations for {locale_count} locales`
+- **Description:** Markdown summary with:
+  - Link to the original health report
+  - Before/after coverage percentages per locale
+  - List of added keys
+  - Note that translations are AI-generated and should be reviewed
+
+**Example PR description:**
+
+```markdown
+## Translation Fixes
+
+This PR adds missing translations detected by [i18n Doctor](https://i18n.doctor).
+
+### Coverage Improvements
+
+- **French (fr):** 67% → 100% (+15 keys)
+- **Spanish (es):** 82% → 100% (+8 keys)  
+- **German (de):** 71% → 100% (+13 keys)
+
+### Added Keys
+
+- `auth.login`
+- `auth.logout`
+- `auth.register`
+- `errors.network`
+- `errors.timeout`
+- ...
+
+---
+
+⚠️ **Note:** Translations were generated using Lingo.dev AI. Please review for accuracy and context before merging.
+```
+
+## Review Best Practices
+
+While AI translations are high-quality, human review is recommended:
+
+<Warning>
+**Always review auto-generated translations** before deploying to production. Pay special attention to:
+
+- Brand names and product terminology
+- Cultural nuances and idioms
+- Formal vs. informal tone (tu/vous, du/Sie)
+- Technical accuracy for domain-specific terms
+- Gender agreement in gendered languages
+</Warning>
+
+### Review Checklist
+
+- [ ] Placeholders and variables are preserved: `{{name}}`, `{count}`, `%s`
+- [ ] Punctuation is appropriate for the target language
+- [ ] Capitalization follows locale conventions
+- [ ] Tone matches your brand voice (formal, friendly, technical)
+- [ ] Technical terms use standard industry vocabulary
+- [ ] Error messages are clear and actionable
+
+## Limitations
+
+<Card title="Orphan Keys Not Removed" icon="info-circle">
+  The fix operation only **adds** missing translations. It does not remove orphan keys (keys in target locales that don't exist in the source). You'll need to clean those up manually.
+</Card>
+
+<Card title="Context Limitations" icon="exclamation-circle">
+  AI translators don't have access to your application's UI or user flow. Some translations may need adjustment for optimal context fit.
+</Card>
+
+<Card title="Plural Forms" icon="language">
+  Complex plural rules (e.g., ICU MessageFormat) may require manual adjustment after translation to ensure grammatical correctness across all quantity ranges.
+</Card>
+
+## Pricing
+
+The Lingo.dev integration operates on a credit-based system:
+
+- **Free tier:** 1,000 keys per month
+- **Pro tier:** 10,000 keys per month
+- **Enterprise:** Unlimited keys with volume pricing
+
+Each translation key counts as one credit, regardless of target locale. For example, translating 10 missing keys into 5 locales = 50 credits.
+
+<Info>
+Check your current usage and remaining credits on your Lingo.dev account dashboard.
+</Info>
+
+## Alternative Workflows
+
+If you prefer not to use automated translation:
+
+1. **Export for human translation:** Download the health report data and send it to professional translators
+2. **Use translation management tools:** Integrate with platforms like Crowdin, Lokalise, or Phrase
+3. **Manual translation:** Use the missing keys list as a checklist for your team
+
+The health report provides all the information needed to manage translations using any workflow.

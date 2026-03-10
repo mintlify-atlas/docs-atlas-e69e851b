@@ -1,0 +1,308 @@
+---
+title: 'Shareable Reports'
+description: 'Generate unique URLs and share translation health reports with your team'
+---
+
+Every scan performed by i18n Doctor generates a unique, shareable URL that you can send to teammates, stakeholders, or include in documentation.
+
+## Unique Report URLs
+
+When you scan a repository, the health report is accessible via a URL containing the repository path:
+
+```
+https://i18n.doctor/report?repo=github.com/owner/repo
+```
+
+This URL structure allows:
+
+- **Bookmarking:** Save frequently-checked repositories for quick access
+- **Sharing:** Send the link to teammates without requiring them to re-scan
+- **Documentation:** Include in README files, wikis, or project dashboards
+
+### Short URL Format
+
+For convenience, you can also access reports using a shorter URL format:
+
+```
+https://i18n.doctor/owner/repo
+```
+
+This automatically redirects to the full report page. Both URL formats produce identical results.
+
+<CodeGroup>
+```bash Direct Report URL
+curl "https://i18n.doctor/report?repo=facebook/react"
+```
+
+```bash Short URL Format
+curl "https://i18n.doctor/facebook/react"
+```
+</CodeGroup>
+
+## Real-Time Scanning
+
+Reports are **generated on-demand** rather than cached:
+
+<Card title="Always Fresh Data" icon="refresh">
+  Each time you visit a report URL, i18n Doctor re-scans the repository to fetch the latest translation files from the default branch. This ensures you always see current data.
+</Card>
+
+### Implications
+
+- **Up-to-date:** No stale data or outdated coverage metrics
+- **Load time:** Scans take 3-10 seconds depending on repository size
+- **Rate limits:** Each view counts toward GitHub API rate limits
+
+<Info>
+To avoid re-scanning, bookmark or cache the page after the initial load. The report will remain visible until you refresh.
+</Info>
+
+## Scanning Specific Branches
+
+By default, reports scan the repository's default branch (usually `main` or `master`). To scan a different branch, specify it in the URL:
+
+```
+https://i18n.doctor/report?repo=github.com/owner/repo/tree/develop
+```
+
+Or using the short format:
+
+```
+https://i18n.doctor/owner/repo/tree/develop
+```
+
+This is useful for:
+
+- Checking translation status before merging feature branches
+- Comparing coverage between production and development branches
+- Validating translations in release candidate branches
+
+## Social Preview Cards
+
+When you share an i18n Doctor report URL on social media, Slack, or other platforms, a preview card is automatically generated with:
+
+- **Repository name** and description
+- **Average coverage** percentage across all locales
+- **Total missing keys** count
+- **i18n Doctor branding** and logo
+
+<Frame>
+  <img src="/images/social-preview.png" alt="Social preview card showing translation health metrics" />
+</Frame>
+
+### Implementation
+
+The preview cards use Open Graph meta tags:
+
+```html
+<meta property="og:title" content="owner/repo - Translation Health Report" />
+<meta property="og:description" content="85% average coverage · 23 missing keys · 4 locales" />
+<meta property="og:image" content="https://i18n.doctor/api/og?repo=owner/repo" />
+<meta property="og:url" content="https://i18n.doctor/owner/repo" />
+<meta name="twitter:card" content="summary_large_image" />
+```
+
+The `og:image` is dynamically generated based on the latest scan data.
+
+## Embedding Reports
+
+You can embed live translation health metrics in external dashboards or documentation using iframes:
+
+```html
+<iframe
+  src="https://i18n.doctor/report?repo=owner/repo&embed=true"
+  width="100%"
+  height="600"
+  frameborder="0"
+></iframe>
+```
+
+The `embed=true` parameter provides a simplified view optimized for embedding:
+
+- Removes navigation header and footer
+- Hides branding elements
+- Adjusts spacing for compact display
+- Disables background animations
+
+<Note>
+Embedded reports still generate real-time scans on load. Be mindful of rate limits if embedding on high-traffic pages.
+</Note>
+
+## Badge Generation
+
+Generate a dynamic badge showing your translation coverage:
+
+```markdown
+![i18n coverage](https://i18n.doctor/api/badge/owner/repo)
+```
+
+<Frame>
+  <img src="/images/badge-example.png" alt="Coverage badge showing 94%" />
+</Frame>
+
+The badge:
+
+- Updates automatically with each scan
+- Uses color coding (green/yellow/red) based on average coverage
+- Shows the coverage percentage
+- Links to the full health report when clicked
+
+### Badge Styles
+
+Customize the badge appearance with query parameters:
+
+<CodeGroup>
+```markdown Flat Style (Default)
+![i18n coverage](https://i18n.doctor/api/badge/owner/repo?style=flat)
+```
+
+```markdown Flat Square
+![i18n coverage](https://i18n.doctor/api/badge/owner/repo?style=flat-square)
+```
+
+```markdown For the Badge
+![i18n coverage](https://i18n.doctor/api/badge/owner/repo?style=for-the-badge)
+```
+
+```markdown Social
+![i18n coverage](https://i18n.doctor/api/badge/owner/repo?style=social)
+```
+</CodeGroup>
+
+## Team Collaboration
+
+Shareable reports enable several collaboration workflows:
+
+### Code Review
+
+Include the report URL in pull request descriptions to show translation impact:
+
+```markdown
+## Translation Status
+
+This PR adds new UI strings. Check coverage impact:
+https://i18n.doctor/owner/repo/tree/feature-branch
+
+- English: 100% (baseline)
+- French: 87% → 71% (15 new missing keys)
+- Spanish: 92% → 78% (12 new missing keys)
+```
+
+### Sprint Planning
+
+Share the report during planning to allocate translation work:
+
+```markdown
+## Localization Debt
+
+Current status: https://i18n.doctor/owner/repo
+
+**Priority locales to address:**
+1. German (de) - 58% coverage
+2. Japanese (ja) - 61% coverage
+3. Portuguese (pt-BR) - 74% coverage
+```
+
+### Stakeholder Updates
+
+Send non-technical stakeholders a simple URL instead of exporting data:
+
+```
+Hi team,
+
+Here's the latest translation health for our web app:
+https://i18n.doctor/acme-corp/web-app
+
+All European languages are now >90% coverage!
+```
+
+## Access Control
+
+<Warning>
+**Public repositories only:** i18n Doctor can only scan public GitHub repositories. If your repository is private, the scan will fail with a "not found" error.
+</Warning>
+
+This means:
+
+- Anyone with the URL can view the report (no authentication required)
+- Reports are effectively public data
+- Don't share reports that might reveal sensitive business information
+
+For private repositories, consider:
+
+- Running i18n Doctor locally (self-hosted option)
+- Using GitHub Actions with the i18n Doctor CLI
+- Exporting reports and sharing via secure channels
+
+## URL Parameters Reference
+
+| Parameter | Values | Description |
+|-----------|--------|-------------|
+| `repo` | `owner/repo` or full GitHub URL | Repository to scan |
+| `embed` | `true` / `false` | Enable embedded mode (no header/footer) |
+| `branch` | Branch name | Scan a specific branch instead of default |
+| `format` | `html` / `json` | Response format (JSON for API access) |
+
+### JSON API
+
+Fetch raw report data programmatically:
+
+```bash
+curl "https://i18n.doctor/report?repo=owner/repo&format=json"
+```
+
+Response structure:
+
+```json
+{
+  "repo": {
+    "owner": "facebook",
+    "repo": "react",
+    "branch": "main",
+    "description": "A declarative, efficient, and flexible JavaScript library...",
+    "stars": 220000
+  },
+  "localeGroup": {
+    "basePath": "src/i18n/locales",
+    "style": "nested",
+    "locales": ["en", "fr", "es", "de", "ja"]
+  },
+  "report": {
+    "sourceLocale": "en",
+    "totalSourceKeys": 147,
+    "locales": [
+      {
+        "locale": "fr",
+        "totalKeys": 145,
+        "translatedKeys": 142,
+        "missingKeys": ["new.feature.title", "new.feature.description"],
+        "untranslatedKeys": ["settings.advanced"],
+        "orphanKeys": [],
+        "coverage": 97
+      }
+    ],
+    "summary": {
+      "totalLocales": 4,
+      "avgCoverage": 89,
+      "totalMissing": 23,
+      "totalUntranslated": 8,
+      "totalOrphan": 5
+    }
+  }
+}
+```
+
+<Info>
+The JSON API is useful for building custom dashboards, CI/CD integrations, or monitoring systems.
+</Info>
+
+## Reporting Issues
+
+If a shared report shows incorrect data:
+
+1. **Verify the branch:** Ensure you're scanning the correct branch
+2. **Check file formats:** Confirm translation files use supported formats (JSON/YAML/PO)
+3. **Review directory structure:** Ensure files follow [supported patterns](/features/scanning#supported-directory-patterns)
+4. **Refresh the page:** Re-scan to fetch the latest data
+
+If problems persist, file an issue on the [GitHub repository](https://github.com/lokendrakushwah12/i18n-doctor/issues).

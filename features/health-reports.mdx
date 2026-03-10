@@ -1,0 +1,310 @@
+---
+title: 'Health Reports'
+description: 'Understand translation coverage, missing keys, and locale health metrics'
+---
+
+After scanning your repository, i18n Doctor generates a comprehensive health report that provides visibility into the state of your translations across all locales.
+
+## Report Overview
+
+The health report dashboard displays four key sections:
+
+1. **Repository metadata** - Owner, name, branch, detected locale directory
+2. **Summary statistics** - Aggregate metrics across all locales
+3. **Locale cards** - Detailed health information for each target locale
+4. **Visual coverage bars** - Color-coded progress indicators
+
+<Frame>
+  <img src="/images/health-report.png" alt="Health report dashboard showing coverage metrics" />
+</Frame>
+
+## Summary Statistics
+
+The top of the report shows four aggregate metrics:
+
+<CardGroup cols={2}>
+  <Card title="Total Keys" icon="key">
+    The number of translation keys in the source locale. This represents 100% coverage.
+  </Card>
+  <Card title="Avg Coverage" icon="chart-bar">
+    The mean coverage percentage across all target locales. Calculated as:
+    ```
+    (sum of all locale coverages) / (number of target locales)
+    ```
+  </Card>
+  <Card title="Missing Keys" icon="exclamation-triangle">
+    Total count of keys that exist in the source but are absent from target locales.
+  </Card>
+  <Card title="Orphan Keys" icon="archive-box-x-mark">
+    Total count of keys that exist in target locales but not in the source (unused/leftover).
+  </Card>
+</CardGroup>
+
+## Coverage Metrics Explained
+
+Each locale has a **coverage percentage** that indicates translation completeness:
+
+```typescript
+coverage = (translatedKeys / totalSourceKeys) * 100
+```
+
+Where:
+- `translatedKeys = totalSourceKeys - missingKeys - untranslatedKeys`
+- `totalSourceKeys` = number of keys in the source locale
+
+### Color Coding
+
+Coverage bars and badges use color to indicate health status:
+
+<CardGroup cols={3}>
+  <Card title="90-100%" icon="check-circle">
+    **Green** - Excellent coverage, minimal issues
+  </Card>
+  <Card title="60-89%" icon="exclamation-circle">
+    **Yellow** - Moderate coverage, attention needed
+  </Card>
+  <Card title="0-59%" icon="x-circle">
+    **Red** - Poor coverage, immediate action required
+  </Card>
+</CardGroup>
+
+## Understanding Key Types
+
+The health report categorizes translation keys into three types:
+
+### Missing Keys
+
+**Definition:** Keys that exist in the source locale but are completely absent from the target locale.
+
+**Impact:** Users will see broken UI, untranslated text, or error messages in these languages.
+
+**Example:**
+```json
+// Source locale (en.json)
+{
+  "welcome": "Welcome",
+  "goodbye": "Goodbye",
+  "help": "Help"
+}
+
+// Target locale (fr.json)
+{
+  "welcome": "Bienvenue",
+  "goodbye": "Au revoir"
+  // "help" is MISSING
+}
+```
+
+<Warning>
+**Critical issue** - Missing keys prevent the application from displaying any text for these strings, often resulting in broken UI or displaying the key name instead.
+</Warning>
+
+### Untranslated Keys
+
+**Definition:** Keys that exist in the target locale but have an empty string value.
+
+**Impact:** Keys are present but contain no translation, often appearing as blank spaces in the UI.
+
+**Example:**
+```json
+// Source locale (en.json)
+{
+  "welcome": "Welcome",
+  "goodbye": "Goodbye"
+}
+
+// Target locale (fr.json)
+{
+  "welcome": "Bienvenue",
+  "goodbye": ""  // UNTRANSLATED (empty string)
+}
+```
+
+<Info>
+Untranslated keys reduce coverage but are less critical than missing keys since the structure exists. They're often placeholders for in-progress translations.
+</Info>
+
+### Orphan Keys
+
+**Definition:** Keys that exist in target locales but not in the source locale.
+
+**Impact:** Unused keys that bloat file size and create maintenance overhead. They may be remnants from refactored code.
+
+**Example:**
+```json
+// Source locale (en.json)
+{
+  "welcome": "Welcome",
+  "goodbye": "Goodbye"
+}
+
+// Target locale (fr.json)
+{
+  "welcome": "Bienvenue",
+  "goodbye": "Au revoir",
+  "old_message": "Message ancien"  // ORPHAN (not in source)
+}
+```
+
+<Note>
+Orphan keys don't affect coverage calculations but indicate technical debt. They should be removed during cleanup to keep translation files in sync.
+</Note>
+
+## Locale Cards
+
+Each target locale is displayed in its own card with expandable details:
+
+### Card Header
+
+- **Locale code** (e.g., `fr`, `es-MX`) in monospace font
+- **Coverage badge** with color-coded percentage
+- **Coverage progress bar** with visual indicator
+- **Translation status** showing translated/total keys
+
+### Expandable Details
+
+Click "Show details" to reveal:
+
+<Accordion title="Missing Keys List">
+  Displayed in **red text** with a count. Shows the exact key names that need to be added.
+
+  ```
+  Missing keys (3)
+  • auth.login
+  • auth.logout  
+  • errors.network
+  ```
+</Accordion>
+
+<Accordion title="Untranslated Keys List">
+  Displayed in **yellow text** with a count. Shows keys that exist but have empty values.
+
+  ```
+  Untranslated (2)
+  • dashboard.welcome
+  • settings.title
+  ```
+</Accordion>
+
+<Accordion title="Orphan Keys List">
+  Displayed in **gray text** with a count. Shows unused keys that can be safely removed.
+
+  ```
+  Orphan keys (1)
+  • deprecated.old_feature
+  ```
+</Accordion>
+
+## Visual Representation
+
+The report uses several visual components to make data scannable:
+
+### Progress Bars
+
+Coverage is displayed using a custom progress component with:
+- Horizontal striped pattern for visual interest
+- Color-coded fill based on coverage percentage
+- Height of 32px for easy reading
+- Smooth transitions when data updates
+
+### Sorting
+
+Locales are **sorted by coverage ascending** (worst first), so problem areas appear at the top of the list. This prioritizes locales that need immediate attention.
+
+```typescript
+localeResults.sort((a, b) => a.coverage - b.coverage)
+```
+
+### Responsive Grid
+
+Locale cards are displayed in a responsive grid:
+- **Mobile:** Single column
+- **Desktop:** Two columns side-by-side
+
+This allows efficient comparison between locales on larger screens.
+
+## Report Generation Logic
+
+The diff engine compares target locales against the source using set operations:
+
+```typescript
+// 1. Convert to sets for efficient comparison
+const sourceKeySet = new Set(Object.keys(sourceKeys))
+const targetKeySet = new Set(Object.keys(targetKeys))
+
+// 2. Find missing keys (in source but not in target)
+const missingKeys = [...sourceKeySet].filter(k => !targetKeySet.has(k))
+
+// 3. Find untranslated keys (in target but empty value)
+const untranslatedKeys = [...sourceKeySet].filter(
+  k => targetKeySet.has(k) && targetKeys[k]?.trim() === ""
+)
+
+// 4. Find orphan keys (in target but not in source)
+const orphanKeys = [...targetKeySet].filter(k => !sourceKeySet.has(k))
+
+// 5. Calculate translated keys
+const translatedKeys = totalSourceKeys - missingKeys.length - untranslatedKeys.length
+
+// 6. Calculate coverage percentage
+const coverage = Math.round((translatedKeys / totalSourceKeys) * 100)
+```
+
+## Interpretation Guide
+
+<CardGroup cols={2}>
+  <Card title="100% Coverage" icon="star">
+    **Perfect!** All keys are present and translated. The locale is production-ready.
+  </Card>
+  <Card title="90-99% Coverage" icon="thumbs-up">
+    **Excellent.** Minor gaps exist, likely new features not yet translated. Safe for production.
+  </Card>
+  <Card title="75-89% Coverage" icon="chart-line">
+    **Good.** Noticeable gaps that should be addressed soon. May impact user experience for some features.
+  </Card>
+  <Card title="50-74% Coverage" icon="exclamation-triangle">
+    **Needs attention.** Significant missing translations. Not recommended for production.
+  </Card>
+  <Card title="Below 50%" icon="x-circle">
+    **Critical.** Majority of content is untranslated. This locale is not usable in production.
+  </Card>
+</CardGroup>
+
+## Edge Cases
+
+### No Target Locales
+
+If only the source locale is found, the report displays:
+
+```
+Only the source locale (en) was found — no target locales to compare.
+```
+
+This typically means:
+- The project is English-only
+- Target locales use a different directory structure not yet detected
+- Translation files are in an unsupported format
+
+### Empty Source Locale
+
+If the source locale file is empty or has zero keys:
+
+```typescript
+totalSourceKeys = 0
+coverage = 100  // Default to 100% to avoid division by zero
+```
+
+### Multiple Files Per Locale
+
+When using nested directory structures with multiple files per locale, i18n Doctor:
+
+1. Fetches all files for each locale in parallel
+2. Parses each file into a flat key map
+3. Merges all key maps for that locale using `Object.assign()`
+4. Compares the combined key map against the source
+
+This means keys are deduplicated if they appear in multiple files (later files override earlier ones).
+
+## Shareable Reports
+
+Every scan generates a unique URL that can be shared with your team. See [Shareable Reports](/features/shareable-reports) for details on sharing and embedding.

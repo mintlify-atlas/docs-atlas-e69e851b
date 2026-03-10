@@ -1,0 +1,232 @@
+---
+title: 'Repository Scanning'
+description: 'Automatically detect and analyze translation files across your GitHub repositories'
+---
+
+i18n Doctor automatically scans public GitHub repositories to detect translation files and analyze their structure. The scanner supports multiple directory patterns, file formats, and organizational styles.
+
+## How Auto-Detection Works
+
+The scanner uses pattern matching to identify translation files within your repository's file tree. It recognizes common i18n directory structures and file naming conventions used across popular frameworks and libraries.
+
+### Supported Directory Patterns
+
+The scanner searches for translation files in these common directory locations:
+
+<CardGroup cols={2}>
+  <Card title="Root-level directories">
+    - `locales/` or `locale/`
+    - `i18n/`
+    - `lang/` or `languages/`
+    - `translations/`
+    - `messages/`
+  </Card>
+  <Card title="Framework-specific paths">
+    - `public/locales/` or `public/locale/`
+    - `public/i18n/`
+    - `src/locales/` or `src/locale/`
+    - `src/i18n/`, `src/lang/`, `src/messages/`, `src/translations/`
+    - `app/i18n/`
+    - `assets/i18n/` or `assets/locales/`
+  </Card>
+</CardGroup>
+
+<Note>
+The scanner examines up to 4 directory levels deep to find matching patterns. For example, it will detect `src/app/i18n/locales/`.
+</Note>
+
+### Locale Code Detection
+
+Locale codes are identified using BCP-47 style patterns:
+
+- Two-letter language codes: `en`, `fr`, `es`, `de`, `ja`, `zh`
+- Language + region codes: `en-US`, `pt-BR`, `zh-CN`, `fr-CA`
+- Underscore variants: `en_US`, `pt_BR` (automatically normalized to hyphen format)
+
+The detector uses this regular expression pattern:
+
+```typescript
+const LOCALE_CODE_RE =
+  /^[a-z]{2}(?:[-_][A-Z]{2})?$|^[a-z]{2}(?:[-_][a-z]{2})?$/
+```
+
+## Supported File Formats
+
+i18n Doctor recognizes three popular translation file formats:
+
+<Accordion title="JSON (.json)">
+  The most common format for web applications. Supports nested objects that are flattened into dot-notation keys.
+
+  **Example structure:**
+  ```json
+  {
+    "common": {
+      "welcome": "Welcome",
+      "goodbye": "Goodbye"
+    },
+    "errors": {
+      "not_found": "Page not found"
+    }
+  }
+  ```
+
+  **Flattened keys:**
+  - `common.welcome`
+  - `common.goodbye`
+  - `errors.not_found`
+</Accordion>
+
+<Accordion title="YAML (.yaml, .yml)">
+  Popular in Ruby on Rails and other backend frameworks. Supports flat and nested structures.
+
+  **Example structure:**
+  ```yaml
+  common:
+    welcome: Welcome
+    goodbye: Goodbye
+  errors:
+    not_found: Page not found
+  ```
+
+  The scanner handles both quoted and unquoted values, and automatically strips comments.
+</Accordion>
+
+<Accordion title="Gettext PO (.po)">
+  Traditional format used in PHP, Python, and many other ecosystems.
+
+  **Example structure:**
+  ```po
+  msgid "welcome"
+  msgstr "Welcome"
+
+  msgid "goodbye"
+  msgstr "Goodbye"
+  ```
+
+  The scanner parses `msgid` as the key and `msgstr` as the translated value.
+</Accordion>
+
+## Directory Structure Styles
+
+The scanner detects two organizational patterns:
+
+### Flat Structure
+
+Locale files are placed directly in the base directory, with the locale code as the filename:
+
+```
+locales/
+├── en.json
+├── fr.json
+├── es.json
+└── de.json
+```
+
+<Info>
+**Detected as:** `style: "flat"`
+
+**Best for:** Simple projects with a single translation file per locale
+</Info>
+
+### Nested Structure
+
+Each locale has its own subdirectory containing multiple translation files:
+
+```
+locales/
+├── en/
+│   ├── common.json
+│   ├── errors.json
+│   └── navigation.json
+├── fr/
+│   ├── common.json
+│   ├── errors.json
+│   └── navigation.json
+└── es/
+    ├── common.json
+    ├── errors.json
+    └── navigation.json
+```
+
+<Info>
+**Detected as:** `style: "nested"`
+
+**Best for:** Large projects with translations split across multiple namespaces
+</Info>
+
+## Source Locale Detection
+
+i18n Doctor automatically identifies which locale serves as the source (reference) for comparisons:
+
+1. **Prefers English**: If `en` or `en-us` exists, it's selected as the source
+2. **Falls back to first alphabetically**: If no English locale is found, the first locale alphabetically becomes the source
+
+You can see the detected source locale in the scan report header, marked with a `(source)` badge.
+
+## Scanning Process
+
+When you submit a repository URL, i18n Doctor executes these steps:
+
+<Steps>
+  <Step title="Parse & Validate">
+    Extracts the owner, repository name, and optional branch from the GitHub URL. Fetches repository metadata including the default branch if none is specified.
+  </Step>
+  <Step title="Fetch File Tree">
+    Retrieves the complete file tree for the specified branch using the GitHub Trees API. This provides a list of all files and their paths without downloading content.
+  </Step>
+  <Step title="Detect Locale Files">
+    Scans the file tree for translation files matching known patterns. Groups files by base directory and organizational style.
+  </Step>
+  <Step title="Download & Parse">
+    Fetches the raw content of all detected translation files in parallel. Parses each file according to its format (JSON/YAML/PO) into a flat key-value map.
+  </Step>
+  <Step title="Generate Report">
+    Compares all target locales against the source locale to identify missing keys, untranslated strings, and orphan keys. Calculates coverage percentages and aggregates statistics.
+  </Step>
+</Steps>
+
+<Warning>
+**Timeout Limit:** Scans must complete within 30 seconds. Very large repositories with thousands of translation keys may time out.
+</Warning>
+
+## No Locale Files Found?
+
+If the scanner reports "No locale files found", check that:
+
+- Your translation files use supported extensions: `.json`, `.yaml`, `.yml`, or `.po`
+- Files are located in one of the [supported directory patterns](#supported-directory-patterns)
+- Filenames or directory names match [locale code patterns](#locale-code-detection)
+- The repository is public (private repos are not supported)
+
+<Card title="Example: Next.js i18n Setup" icon="code">
+  ```
+  public/
+  └── locales/
+      ├── en.json       ✅ Detected (flat style)
+      ├── fr.json       ✅ Detected (flat style)
+      └── es.json       ✅ Detected (flat style)
+  ```
+</Card>
+
+<Card title="Example: React i18next Setup" icon="code">
+  ```
+  src/
+  └── i18n/
+      └── locales/
+          ├── en/
+          │   ├── translation.json    ✅ Detected (nested style)
+          │   └── common.json         ✅ Detected (nested style)
+          └── fr/
+              ├── translation.json    ✅ Detected (nested style)
+              └── common.json         ✅ Detected (nested style)
+  ```
+</Card>
+
+## Rate Limits
+
+GitHub API rate limits apply:
+
+- **Unauthenticated requests:** 60 requests per hour per IP
+- **Authenticated requests:** 5,000 requests per hour (when `GITHUB_TOKEN` is configured)
+
+Each scan typically uses 2-10 API requests depending on the number of translation files.

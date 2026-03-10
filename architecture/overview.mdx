@@ -1,0 +1,296 @@
+---
+title: Architecture Overview
+description: High-level system architecture of i18n Doctor
+---
+
+## System Architecture
+
+i18n Doctor is a web-based localization health scanner that analyzes public GitHub repositories for translation issues and provides automated fixes via Lingo.dev integration.
+
+### Core Architecture
+
+The application follows a modern full-stack architecture:
+
+<CardGroup cols={2}>
+  <Card title="Frontend" icon="browser">
+    Next.js 15 App Router with React 19, providing server-side rendering and client-side interactivity
+  </Card>
+  <Card title="Backend" icon="server">
+    Next.js API routes handling GitHub integration, scanning logic, and database operations
+  </Card>
+  <Card title="Database" icon="database">
+    PostgreSQL via Drizzle ORM for storing scan reports, user data, and leaderboard metrics
+  </Card>
+  <Card title="External APIs" icon="link">
+    GitHub REST API for repository access and Lingo.dev SDK for automated translations
+  </Card>
+</CardGroup>
+
+## Core Components
+
+The system is organized into several key components that work together to deliver the scanning and fixing functionality:
+
+### 1. GitHub Integration Layer
+
+Handles all interactions with the GitHub API:
+
+```typescript
+// apps/www/lib/github.ts
+- parseRepoUrl()     // Parse GitHub URLs or owner/repo strings
+- getRepoInfo()      // Fetch repository metadata
+- getRepoTree()      // Retrieve full file tree recursively
+- getFileContent()   // Download raw file content
+```
+
+**Features:**
+- Supports both authenticated and unauthenticated requests
+- Optional `GITHUB_TOKEN` for higher rate limits (60 → 5,000 req/h)
+- Handles public repositories without authentication
+- Error handling for 404s, rate limits, and API failures
+
+### 2. Locale Detection Engine
+
+```typescript
+// apps/www/lib/locale-detector.ts
+```
+
+Automatically discovers translation files in repositories by:
+- Scanning common i18n directory patterns (`locales/`, `i18n/`, `public/locales/`, `lang/`, etc.)
+- Supporting multiple file formats (JSON, YAML, `.po`, `.properties`)
+- Inferring locale codes from file names or directory structure
+- Identifying the source locale (typically `en` or `en-US`)
+
+### 3. Locale Parser
+
+```typescript
+// apps/www/lib/locale-parser.ts
+```
+
+Converts locale files into a unified format:
+- Parses JSON, YAML, and gettext `.po` files
+- Flattens nested translation keys into dot-notation paths
+- Normalizes different translation file structures
+- Returns a `KeyMap` (flat key-value pairs) for comparison
+
+**Example:**
+```json
+// Input: nested JSON
+{
+  "auth": {
+    "login": "Sign In",
+    "logout": "Sign Out"
+  }
+}
+
+// Output: flat KeyMap
+{
+  "auth.login": "Sign In",
+  "auth.logout": "Sign Out"
+}
+```
+
+### 4. Diff Engine
+
+```typescript
+// apps/www/lib/diff-engine.ts
+```
+
+Compares target locales against the source locale to generate health reports:
+
+- **Missing Keys**: Keys present in source but absent in target
+- **Untranslated Keys**: Keys that exist but have empty values
+- **Orphan Keys**: Keys in target but not in source (unused/leftover)
+- **Coverage Calculation**: Percentage of properly translated keys
+
+**Output:**
+```typescript
+interface LocaleHealth {
+  locale: string
+  totalKeys: number
+  translatedKeys: number
+  missingKeys: string[]
+  untranslatedKeys: string[]
+  orphanKeys: string[]
+  coverage: number  // 0-100
+}
+```
+
+### 5. Authentication System
+
+Implemented with **better-auth** and GitHub OAuth:
+- Users authenticate via GitHub to access premium features
+- Enables saving scan history and accessing the dashboard
+- Required for future "Open PR" functionality
+- Session management and user profile storage
+
+### 6. Database Layer
+
+Using **Drizzle ORM** with PostgreSQL:
+- `reports` table: Stores scan results with RLS (Row-Level Security) policies
+- User profiles and authentication data
+- Leaderboard metrics for benchmarking i18n tooling projects
+
+## Data Flow: Scan to Report
+
+<Steps>
+  <Step title="Repository Input">
+    User provides a GitHub repository URL (e.g., `https://github.com/owner/repo`) or short form (`owner/repo`)
+  </Step>
+  
+  <Step title="Repository Validation">
+    System fetches repo metadata via GitHub API to confirm it exists and is accessible
+  </Step>
+  
+  <Step title="File Tree Retrieval">
+    Recursively fetch the complete file tree using the Git Trees API
+  </Step>
+  
+  <Step title="Locale Detection">
+    Scan the file tree for translation files in common patterns:
+    - `locales/**/*.json`
+    - `i18n/**/*.yaml`
+    - `public/locales/**/*`
+    - Custom patterns based on popular i18n libraries
+  </Step>
+  
+  <Step title="File Parsing">
+    Download and parse detected locale files into flat key-value maps
+  </Step>
+  
+  <Step title="Diff Analysis">
+    Compare all target locales against the source locale to identify issues
+  </Step>
+  
+  <Step title="Report Generation">
+    Generate comprehensive health report with:
+    - Per-locale coverage percentages
+    - Lists of missing, untranslated, and orphan keys
+    - Overall summary statistics
+    - Visual progress bars and charts
+  </Step>
+  
+  <Step title="Database Storage">
+    Save scan results to Supabase for history and leaderboard tracking
+  </Step>
+</Steps>
+
+## API Routes
+
+The application exposes several API endpoints:
+
+```bash
+/api/scan           # Main scanning endpoint
+/api/report/[id]    # Fetch saved report by ID
+/api/leaderboard    # Retrieve benchmark data
+```
+
+### Scan Endpoint Flow
+
+```typescript
+// POST /api/scan
+{
+  "repoUrl": "owner/repo"
+}
+
+// Response
+{
+  "sourceLocale": "en",
+  "totalSourceKeys": 245,
+  "locales": [...],
+  "summary": {
+    "totalLocales": 5,
+    "avgCoverage": 78,
+    "totalMissing": 42,
+    "totalUntranslated": 15,
+    "totalOrphan": 8
+  }
+}
+```
+
+## GitHub API Integration
+
+The system uses the GitHub REST API v3:
+
+<Accordion title="API Endpoints Used">
+  - `GET /repos/:owner/:repo` - Repository metadata
+  - `GET /repos/:owner/:repo/git/trees/:branch?recursive=1` - Full file tree
+  - `https://raw.githubusercontent.com/:owner/:repo/:branch/:path` - Raw file content
+</Accordion>
+
+<Note>
+  **Rate Limits**: Without authentication: 60 requests/hour. With `GITHUB_TOKEN`: 5,000 requests/hour. The app works without a token for public repos but benefits significantly from authenticated requests.
+</Note>
+
+## Lingo.dev Integration
+
+The Lingo.dev integration provides automated translation capabilities:
+
+<CardGroup cols={2}>
+  <Card title="SDK Integration" icon="code">
+    Runtime translation of missing keys on-demand
+  </Card>
+  <Card title="CLI Usage" icon="terminal">
+    Server-side batch processing of locale files
+  </Card>
+  <Card title="Compiler" icon="book">
+    The app itself uses Lingo.dev for multilingual support (dogfooding)
+  </Card>
+  <Card title="CI/CD" icon="robot">
+    GitHub Action for automatic translation on push
+  </Card>
+</CardGroup>
+
+### One-Click Fix Flow (In Progress)
+
+1. User clicks "Fix with Lingo.dev" button on report page
+2. Backend sends missing/untranslated keys to Lingo.dev API
+3. Lingo.dev returns translated content for all target locales
+4. System generates before/after diff preview
+5. User can download fixed files as ZIP or open a GitHub PR
+
+## Security Considerations
+
+- **Public Repos Only**: The scanner only works with public GitHub repositories
+- **No Code Execution**: Files are parsed statically, never executed
+- **Rate Limiting**: GitHub API rate limits prevent abuse
+- **Row-Level Security**: Supabase RLS policies ensure users only access their own data
+- **Environment Variables**: Sensitive tokens stored in `.env.local` files
+
+## Performance Optimizations
+
+- **Turbopack**: Fast development builds and hot module replacement
+- **Parallel Processing**: Concurrent file downloads and parsing where possible
+- **Caching**: GitHub API responses can be cached for frequently scanned repos
+- **Incremental Parsing**: Only parse detected locale files, skip unrelated files
+
+## Error Handling
+
+The system gracefully handles common failure scenarios:
+
+- Repository not found (404)
+- GitHub API rate limit exceeded (403)
+- Malformed locale files (parse errors)
+- Large repositories (truncated trees > 100k entries)
+- Network timeouts and connection failures
+
+<Warning>
+  **Large Repositories**: The GitHub API may truncate file trees for very large repositories (> 100,000 files). The scan will still work but may miss some locale files.
+</Warning>
+
+## Deployment Architecture
+
+- **Hosting**: Vercel (serverless Next.js deployment)
+- **Database**: Supabase (managed PostgreSQL)
+- **CDN**: Vercel Edge Network for global distribution
+- **Analytics**: Vercel Analytics for monitoring
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Monorepo Structure" icon="folder-tree" href="/architecture/monorepo-structure">
+    Learn about the pnpm workspaces + Turborepo setup
+  </Card>
+  <Card title="Tech Stack" icon="layer-group" href="/architecture/tech-stack">
+    Explore the complete technology stack in detail
+  </Card>
+</CardGroup>

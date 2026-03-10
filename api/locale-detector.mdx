@@ -1,0 +1,432 @@
+---
+title: "Locale Detector"
+description: "Detect and identify translation files in common i18n directory patterns"
+icon: "radar"
+---
+
+## Overview
+
+The `locale-detector` module scans a repository file tree and identifies translation files in common i18n patterns. It supports flat and nested directory structures across multiple file formats (JSON, YAML, PO).
+
+**Location**: `apps/www/lib/locale-detector.ts`
+
+### Features
+
+- Detects locale files in common directory patterns
+- Supports flat (`locales/en.json`) and nested (`locales/en/common.json`) structures
+- Recognizes JSON, YAML, and PO file formats
+- Groups files by base directory and locale code
+- Validates locale codes using BCP-47 patterns
+- Filters out single-locale groups (requires at least 2 locales for comparison)
+
+---
+
+## Supported Patterns
+
+The detector recognizes files in the following directory structures:
+
+### Directory Names
+
+```
+locales/          locale/           i18n/
+lang/             languages/        translations/
+messages/         public/locales/   public/locale/
+public/i18n/      src/locales/      src/locale/
+src/i18n/         src/lang/         src/messages/
+src/translations/ app/i18n/         assets/i18n/
+assets/locales/
+```
+
+### File Structures
+
+<CodeGroup>
+
+```text Flat Structure
+locales/
+  ├─ en.json
+  ├─ fr.json
+  ├─ es.json
+  └─ de.json
+```
+
+```text Nested Structure
+locales/
+  ├─ en/
+  │  ├─ common.json
+  │  └─ errors.json
+  ├─ fr/
+  │  ├─ common.json
+  │  └─ errors.json
+  └─ es/
+     ├─ common.json
+     └─ errors.json
+```
+
+</CodeGroup>
+
+### File Extensions
+
+- `.json` — JSON translation files
+- `.yaml`, `.yml` — YAML translation files
+- `.po` — GNU gettext PO files
+
+---
+
+## Functions
+
+### detectLocaleFiles
+
+Scans a repository file tree and detects locale file groups.
+
+```typescript
+function detectLocaleFiles(tree: TreeNode[]): LocaleFileGroup[]
+```
+
+<ParamField path="tree" type="TreeNode[]" required>
+  Array of file nodes from `getRepoTree()`. Each node must have a `path` property.
+</ParamField>
+
+<ResponseField name="LocaleFileGroup[]" type="array">
+  Array of detected locale file groups, sorted by quality (best match first). Each group represents a distinct i18n directory.
+
+  <Expandable title="LocaleFileGroup properties">
+    <ResponseField name="basePath" type="string">
+      The base directory containing the locale files (e.g., `"locales"`, `"src/i18n"`)
+    </ResponseField>
+
+    <ResponseField name="style" type="'flat' | 'nested'">
+      The directory structure style:
+      - `"flat"` — Files like `locales/en.json`, `locales/fr.json`
+      - `"nested"` — Files like `locales/en/common.json`, `locales/fr/common.json`
+    </ResponseField>
+
+    <ResponseField name="files" type="Record<string, string[]>">
+      Map of locale code to array of file paths. Locale codes are normalized to lowercase with hyphens (e.g., `"en"`, `"pt-br"`).
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Algorithm
+
+The detector uses the following heuristics:
+
+1. **File extension check**: Filter files ending in `.json`, `.yaml`, `.yml`, or `.po`
+2. **Directory pattern matching**: Check if parent directories match known locale directory names
+3. **Locale code extraction**: 
+   - **Flat**: Extract locale from filename (e.g., `en.json` → `"en"`)
+   - **Nested**: Extract locale from directory name (e.g., `locales/en/common.json` → `"en"`)
+4. **BCP-47 validation**: Verify locale codes match pattern `/^[a-z]{2}(?:[-_][A-Z]{2})?$/` (e.g., `en`, `en-US`, `pt-BR`)
+5. **Grouping**: Group files by base directory and structure style
+6. **Filtering**: Remove groups with fewer than 1 locale
+
+#### Example
+
+```typescript
+import { getRepoTree } from "@/lib/github"
+import { detectLocaleFiles } from "@/lib/locale-detector"
+
+const tree = await getRepoTree("owner", "repo", "main")
+const groups = detectLocaleFiles(tree)
+
+console.log(groups)
+// [
+//   {
+//     basePath: "src/locales",
+//     style: "nested",
+//     files: {
+//       "en": ["src/locales/en/common.json", "src/locales/en/errors.json"],
+//       "fr": ["src/locales/fr/common.json", "src/locales/fr/errors.json"],
+//       "es": ["src/locales/es/common.json", "src/locales/es/errors.json"]
+//     }
+//   }
+// ]
+```
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:30-38`:
+
+```typescript
+// Detect locale files
+const groups = detectLocaleFiles(tree)
+if (groups.length === 0) {
+  return NextResponse.json(
+    {
+      error: "No locale files found",
+      hint: "We look for JSON/YAML/PO files in directories like locales/, i18n/, messages/, lang/, etc.",
+    },
+    { status: 404 }
+  )
+}
+
+// Process the first (best) group
+const group = groups[0]
+```
+
+<Warning>
+Groups with only 1 locale are filtered out automatically because they're not useful for translation comparison. Ensure your repository has at least 2 locale files.
+</Warning>
+
+---
+
+### guessSourceLocale
+
+Determines the most likely source locale from a locale file group.
+
+```typescript
+function guessSourceLocale(group: LocaleFileGroup): string
+```
+
+<ParamField path="group" type="LocaleFileGroup" required>
+  A locale file group returned by `detectLocaleFiles()`
+</ParamField>
+
+<ResponseField name="locale" type="string">
+  The guessed source locale code (e.g., `"en"`, `"en-us"`)
+</ResponseField>
+
+#### Heuristic
+
+The function uses the following priority order:
+
+1. **"en"** (English) — Most common source locale
+2. **"en-us"** (US English) — Second most common
+3. **First alphabetically** — Fallback to first locale in sorted order
+
+#### Example
+
+```typescript
+import { guessSourceLocale } from "@/lib/locale-detector"
+
+const group = {
+  basePath: "locales",
+  style: "flat",
+  files: {
+    "fr": ["locales/fr.json"],
+    "en": ["locales/en.json"],
+    "de": ["locales/de.json"],
+  }
+}
+
+const source = guessSourceLocale(group)
+console.log(source) // "en"
+```
+
+```typescript
+// Without English
+const group2 = {
+  basePath: "locales",
+  style: "flat",
+  files: {
+    "fr": ["locales/fr.json"],
+    "de": ["locales/de.json"],
+  }
+}
+
+const source2 = guessSourceLocale(group2)
+console.log(source2) // "de" (first alphabetically)
+```
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:43`:
+
+```typescript
+const group = groups[0]
+const sourceLocale = guessSourceLocale(group!)
+```
+
+<Tip>
+For production applications, consider allowing users to explicitly specify the source locale instead of relying on automatic detection.
+</Tip>
+
+---
+
+## Types
+
+### LocaleFileGroup
+
+Represents a detected group of locale files in a common directory structure.
+
+```typescript
+interface LocaleFileGroup {
+  /** The base directory that contains the locale files */
+  basePath: string
+  
+  /**
+   * Pattern style:
+   *  - "flat"   → locales/en.json, locales/fr.json
+   *  - "nested" → locales/en/common.json, locales/fr/common.json
+   */
+  style: "flat" | "nested"
+  
+  /** Map of locale code → list of file paths */
+  files: Record<string, string[]>
+}
+```
+
+### TreeNode
+
+File node from `github.ts` module (re-exported for reference).
+
+```typescript
+interface TreeNode {
+  path: string
+  type: "blob" | "tree"
+  size?: number
+}
+```
+
+---
+
+## Locale Code Format
+
+The detector recognizes locale codes matching the BCP-47 pattern:
+
+### Valid Formats
+
+- **Two-letter language code**: `en`, `fr`, `de`, `es`, `ja`, `zh`
+- **Language + region (hyphen)**: `en-US`, `pt-BR`, `zh-CN`
+- **Language + region (underscore)**: `en_US`, `pt_BR`, `zh_CN` (normalized to hyphen)
+- **Language + script**: `zh-Hans`, `zh-Hant`
+
+### Normalization
+
+All locale codes are normalized to:
+- Lowercase
+- Hyphen separator (underscores converted to hyphens)
+
+```typescript
+// Internal normalization (from source)
+const normalized = locale.toLowerCase().replace("_", "-")
+
+// Examples:
+"EN" → "en"
+"en_US" → "en-us"
+"pt_BR" → "pt-br"
+```
+
+---
+
+## Detection Examples
+
+### Example 1: Flat Structure
+
+```typescript
+const tree = [
+  { path: "locales/en.json", type: "blob" },
+  { path: "locales/fr.json", type: "blob" },
+  { path: "locales/es.json", type: "blob" },
+]
+
+const groups = detectLocaleFiles(tree)
+// [
+//   {
+//     basePath: "locales",
+//     style: "flat",
+//     files: {
+//       "en": ["locales/en.json"],
+//       "fr": ["locales/fr.json"],
+//       "es": ["locales/es.json"]
+//     }
+//   }
+// ]
+```
+
+### Example 2: Nested Structure with Multiple Files
+
+```typescript
+const tree = [
+  { path: "src/i18n/en/common.json", type: "blob" },
+  { path: "src/i18n/en/errors.json", type: "blob" },
+  { path: "src/i18n/fr/common.json", type: "blob" },
+  { path: "src/i18n/fr/errors.json", type: "blob" },
+]
+
+const groups = detectLocaleFiles(tree)
+// [
+//   {
+//     basePath: "src/i18n",
+//     style: "nested",
+//     files: {
+//       "en": ["src/i18n/en/common.json", "src/i18n/en/errors.json"],
+//       "fr": ["src/i18n/fr/common.json", "src/i18n/fr/errors.json"]
+//     }
+//   }
+// ]
+```
+
+### Example 3: Mixed Formats
+
+```typescript
+const tree = [
+  { path: "locales/en.yaml", type: "blob" },
+  { path: "locales/fr.yaml", type: "blob" },
+  { path: "locale/en.po", type: "blob" },
+  { path: "locale/es.po", type: "blob" },
+]
+
+const groups = detectLocaleFiles(tree)
+// [
+//   {
+//     basePath: "locales",
+//     style: "flat",
+//     files: {
+//       "en": ["locales/en.yaml"],
+//       "fr": ["locales/fr.yaml"]
+//     }
+//   },
+//   {
+//     basePath: "locale",
+//     style: "flat",
+//     files: {
+//       "en": ["locale/en.po"],
+//       "es": ["locale/es.po"]
+//     }
+//   }
+// ]
+```
+
+---
+
+## Complete Example
+
+```typescript
+import { getRepoTree } from "@/lib/github"
+import { detectLocaleFiles, guessSourceLocale } from "@/lib/locale-detector"
+
+async function findTranslations(owner: string, repo: string, branch: string) {
+  // 1. Fetch repository file tree
+  const tree = await getRepoTree(owner, repo, branch)
+  console.log(`📁 Scanning ${tree.length} files...`)
+  
+  // 2. Detect locale file groups
+  const groups = detectLocaleFiles(tree)
+  
+  if (groups.length === 0) {
+    console.log("❌ No locale files found")
+    return
+  }
+  
+  console.log(`✅ Found ${groups.length} locale group(s)\n`)
+  
+  // 3. Analyze each group
+  for (const group of groups) {
+    const locales = Object.keys(group.files)
+    const sourceLocale = guessSourceLocale(group)
+    
+    console.log(`📂 ${group.basePath} (${group.style})`)
+    console.log(`   Source: ${sourceLocale}`)
+    console.log(`   Locales: ${locales.join(", ")}`)    
+    
+    // Show files per locale
+    for (const [locale, files] of Object.entries(group.files)) {
+      console.log(`   ${locale}: ${files.length} file(s)`)
+      files.forEach(f => console.log(`      - ${f}`))
+    }
+    console.log()
+  }
+}
+
+findTranslations("vercel", "next.js", "canary")
+```

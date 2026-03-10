@@ -1,0 +1,435 @@
+---
+title: Supported Formats
+description: i18n Doctor supports JSON, YAML, and gettext .po files with automatic format detection
+---
+
+i18n Doctor automatically detects and parses the most common translation file formats. This guide explains how each format is processed and what structures are supported.
+
+## Supported Formats
+
+<CardGroup cols={3}>
+  <Card title="JSON" icon="brackets-curly">
+    `.json` files with flat or nested structures
+  </Card>
+  <Card title="YAML" icon="file-lines">
+    `.yaml` and `.yml` files with nesting support
+  </Card>
+  <Card title="Gettext" icon="language">
+    `.po` files with msgid/msgstr entries
+  </Card>
+</CardGroup>
+
+## JSON Format
+
+### Flat Structure
+
+The simplest format - direct key-value pairs:
+
+```json en.json
+{
+  "welcome": "Welcome to our app",
+  "login": "Log in",
+  "signup": "Sign up",
+  "logout": "Log out"
+}
+```
+
+### Nested Structure
+
+i18n Doctor automatically flattens nested objects using dot notation:
+
+<CodeGroup>
+```json en.json (Original)
+{
+  "auth": {
+    "login": {
+      "title": "Log In",
+      "email": "Email address",
+      "password": "Password",
+      "button": "Sign in"
+    },
+    "signup": {
+      "title": "Create Account",
+      "button": "Sign up"
+    }
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "stats": {
+      "users": "Total Users",
+      "revenue": "Revenue"
+    }
+  }
+}
+```
+
+```json Flattened (Internal)
+{
+  "auth.login.title": "Log In",
+  "auth.login.email": "Email address",
+  "auth.login.password": "Password",
+  "auth.login.button": "Sign in",
+  "auth.signup.title": "Create Account",
+  "auth.signup.button": "Sign up",
+  "dashboard.welcome": "Welcome back",
+  "dashboard.stats.users": "Total Users",
+  "dashboard.stats.revenue": "Revenue"
+}
+```
+</CodeGroup>
+
+<Info>
+Nested structures are flattened **only for analysis**. Your original file structure remains unchanged.
+</Info>
+
+### Arrays in JSON
+
+Arrays are flattened using numeric indices:
+
+<CodeGroup>
+```json en.json
+{
+  "days": ["Monday", "Tuesday", "Wednesday"],
+  "errors": {
+    "validation": [
+      "Field is required",
+      "Invalid email format"
+    ]
+  }
+}
+```
+
+```json Flattened
+{
+  "days.0": "Monday",
+  "days.1": "Tuesday",
+  "days.2": "Wednesday",
+  "errors.validation.0": "Field is required",
+  "errors.validation.1": "Invalid email format"
+}
+```
+</CodeGroup>
+
+### Primitive Values
+
+JSON supports strings, numbers, and booleans:
+
+```json config.json
+{
+  "app_name": "i18n Doctor",
+  "version": 1.0,
+  "is_active": true,
+  "max_users": 1000
+}
+```
+
+All values are converted to strings internally:
+
+```json Flattened
+{
+  "app_name": "i18n Doctor",
+  "version": "1.0",
+  "is_active": "true",
+  "max_users": "1000"
+}
+```
+
+<Note>
+Primitive values (numbers, booleans) are converted to strings during parsing for consistent comparison across locales.
+</Note>
+
+## YAML Format
+
+### Basic YAML
+
+YAML files use indentation to define structure:
+
+```yaml en.yml
+welcome: Welcome to our app
+login: Log in
+signup: Sign up
+logout: Log out
+```
+
+### Nested YAML
+
+Supports parent-child relationships:
+
+<CodeGroup>
+```yaml en.yml
+auth:
+  login:
+    title: Log In
+    email: Email address
+    password: Password
+    button: Sign in
+  signup:
+    title: Create Account
+    button: Sign up
+
+dashboard:
+  welcome: Welcome back
+  stats:
+    users: Total Users
+    revenue: Revenue
+```
+
+```json Flattened
+{
+  "auth.login.title": "Log In",
+  "auth.login.email": "Email address",
+  "auth.login.password": "Password",
+  "auth.login.button": "Sign in",
+  "auth.signup.title": "Create Account",
+  "auth.signup.button": "Sign up",
+  "dashboard.welcome": "Welcome back",
+  "dashboard.stats.users": "Total Users",
+  "dashboard.stats.revenue": "Revenue"
+}
+```
+</CodeGroup>
+
+### YAML Comments
+
+Comments are ignored during parsing:
+
+```yaml en.yml
+# Authentication strings
+auth:
+  login: Log in  # Main login button
+  signup: Sign up
+
+# Dashboard content
+dashboard:
+  welcome: Welcome back
+```
+
+<Tip>
+YAML comments are preserved in your original files but don't affect the i18n analysis.
+</Tip>
+
+### Quoted Strings
+
+Both single and double quotes are supported:
+
+```yaml en.yml
+message1: 'Single quoted string'
+message2: "Double quoted string"
+message3: Unquoted string
+special: "String with: colons"
+```
+
+## Gettext (.po) Format
+
+Gettext is the standard for internationalization in many frameworks (Django, WordPress, etc.).
+
+### Basic .po Structure
+
+```po messages.po
+# Comment
+msgid "welcome"
+msgstr "Welcome to our app"
+
+msgid "login"
+msgstr "Log in"
+
+msgid "signup"
+msgstr "Sign up"
+```
+
+### Multi-line Strings
+
+Gettext supports string continuation:
+
+```po messages.po
+msgid "long_message"
+msgstr "This is a very long message that "
+"spans multiple lines for better "
+"readability in the source file."
+
+msgid "paragraph"
+msgstr ""
+"First paragraph.\n"
+"\n"
+"Second paragraph."
+```
+
+<CodeGroup>
+```po Original
+msgid "terms"
+msgstr "By signing up, you agree to our "
+"Terms of Service and Privacy Policy."
+```
+
+```json Flattened
+{
+  "terms": "By signing up, you agree to our Terms of Service and Privacy Policy."
+}
+```
+</CodeGroup>
+
+### Empty Translations
+
+Empty `msgstr` values are treated as untranslated:
+
+```po fr.po
+msgid "welcome"
+msgstr "Bienvenue"
+
+msgid "login"
+msgstr ""  # Untranslated - will show in report
+
+msgid "signup"
+msgstr "S'inscrire"
+```
+
+<Warning>
+In .po files, an empty `msgstr` means "untranslated." This will be flagged in your report as needing attention.
+</Warning>
+
+### Metadata Comments
+
+Gettext comments and metadata are ignored:
+
+```po messages.po
+# TRANSLATOR: Context for the translator
+#: src/auth.js:12
+#, fuzzy
+msgid "login"
+msgstr "Log in"
+```
+
+Only `msgid` and `msgstr` are extracted for analysis.
+
+## Format Detection
+
+i18n Doctor automatically detects format based on file extension:
+
+| Extension | Format | Parser |
+|-----------|--------|--------|
+| `.json` | JSON | `JSON.parse()` with flattening |
+| `.yaml`, `.yml` | YAML | Lightweight YAML parser |
+| `.po` | Gettext | msgid/msgstr extractor |
+
+<Info>
+Format detection is **automatic**. Just ensure your files use standard extensions.
+</Info>
+
+## Common Patterns
+
+### React i18next
+
+Typically uses nested JSON:
+
+```json public/locales/en/translation.json
+{
+  "common": {
+    "buttons": {
+      "submit": "Submit",
+      "cancel": "Cancel"
+    }
+  },
+  "pages": {
+    "home": {
+      "title": "Welcome",
+      "subtitle": "Get started today"
+    }
+  }
+}
+```
+
+### Vue i18n
+
+Supports both JSON and YAML:
+
+<CodeGroup>
+```json locales/en.json
+{
+  "message": {
+    "hello": "Hello, {name}!"
+  }
+}
+```
+
+```yaml locales/en.yaml
+message:
+  hello: 'Hello, {name}!'
+```
+</CodeGroup>
+
+### Next.js with next-intl
+
+Nested JSON in `messages/` directory:
+
+```json messages/en.json
+{
+  "Index": {
+    "title": "Hello world!"
+  },
+  "About": {
+    "title": "About us"
+  }
+}
+```
+
+### Django gettext
+
+Standard .po files:
+
+```po locale/fr/LC_MESSAGES/django.po
+msgid "Welcome"
+msgstr "Bienvenue"
+
+msgid "Login"
+msgstr "Connexion"
+```
+
+## Limitations
+
+<Accordion title="JSON: Extremely deep nesting">
+  While i18n Doctor supports unlimited nesting depth, extremely deep structures (10+ levels) may create very long flattened keys. Consider refactoring for better organization.
+</Accordion>
+
+<Accordion title="YAML: Limited to standard syntax">
+  The YAML parser is lightweight and supports common patterns. Advanced YAML features (anchors, tags, multi-doc files) are not supported. Use standard key-value structures.
+</Accordion>
+
+<Accordion title="Gettext: Single-file only">
+  Each .po file is processed independently. If your project uses domain-specific .po files (e.g., `django.po`, `messages.po`), each will be analyzed separately.
+</Accordion>
+
+<Accordion title="Binary formats not supported">
+  Compiled formats like .mo (compiled gettext) are not supported. Use source .po files instead.
+</Accordion>
+
+## File Detection
+
+i18n Doctor scans your repository for locale files in common locations:
+
+- `locales/`
+- `i18n/`
+- `public/locales/`
+- `messages/`
+- `locale/`
+- `translations/`
+- `lang/`
+
+Files matching these patterns are automatically included:
+- `**/*.json`
+- `**/*.yaml`, `**/*.yml`
+- `**/*.po`
+
+<Tip>
+Organize your locale files in standard directories (`locales/`, `i18n/`) for automatic detection.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Understanding Reports" icon="chart-line" href="/guides/understanding-reports">
+    Learn how to interpret your scan results
+  </Card>
+  <Card title="Lingo.dev Integration" icon="language" href="/guides/lingo-integration">
+    Fix missing translations with AI-powered translation
+  </Card>
+</CardGroup>

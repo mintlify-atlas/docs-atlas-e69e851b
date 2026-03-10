@@ -1,0 +1,241 @@
+---
+title: Understanding Reports
+description: Learn how to interpret your i18n scan results and prioritize translation fixes
+---
+
+When i18n Doctor scans your repository, it generates a comprehensive health report that shows exactly where your translations need attention. This guide explains what each metric means and how to prioritize fixes.
+
+## Report Structure
+
+Every scan report contains:
+
+- **Summary metrics** - Overall project health at a glance
+- **Per-locale health cards** - Detailed breakdown for each language
+- **Issue lists** - Specific keys that need attention
+- **Coverage rankings** - Locales sorted by completeness
+
+<Note>
+Reports are sorted with the **worst-performing locales first**, making it easy to identify which languages need the most attention.
+</Note>
+
+## Coverage Percentage Explained
+
+### What is Coverage?
+
+Coverage represents the percentage of your source locale's keys that are properly translated in a target locale.
+
+```typescript
+coverage = (translatedKeys / totalSourceKeys) × 100
+```
+
+Where:
+- `translatedKeys` = keys that exist AND have non-empty values
+- `totalSourceKeys` = total keys in your source locale (e.g., `en`)
+
+### Coverage Ranges
+
+<Accordion title="90-100% - Excellent">
+  Your locale is nearly complete. Focus on the few remaining keys and consider this locale production-ready.
+  
+  **Action**: Review untranslated keys for quality, then deploy with confidence.
+</Accordion>
+
+<Accordion title="70-89% - Good">
+  Most content is translated, but there are noticeable gaps. Users will see English fallbacks in some areas.
+  
+  **Action**: Prioritize high-traffic UI strings and user-facing messages.
+</Accordion>
+
+<Accordion title="40-69% - Needs Attention">
+  Significant portions are untranslated. User experience will be inconsistent.
+  
+  **Action**: Use Lingo.dev integration to bulk-translate missing keys, then review for accuracy.
+</Accordion>
+
+<Accordion title="0-39% - Critical">
+  This locale is incomplete and should not be deployed. Most content will appear in the source language.
+  
+  **Action**: Consider removing this locale from production or using one-click fix to bring it up to 100%.
+</Accordion>
+
+## Understanding Metrics
+
+### 1. Missing Keys
+
+**Definition**: Keys that exist in your source locale but are completely absent from the target locale file.
+
+**Example**:
+
+<CodeGroup>
+```json en.json (source)
+{
+  "welcome": "Welcome",
+  "login": "Log in",
+  "signup": "Sign up"
+}
+```
+
+```json fr.json (target)
+{
+  "welcome": "Bienvenue",
+  "login": "Se connecter"
+  // "signup" is missing!
+}
+```
+</CodeGroup>
+
+**Impact**: Your app will fall back to the source language or show an error for these keys.
+
+**Priority**: 🔴 **High** - These are complete gaps in your localization.
+
+### 2. Untranslated Keys
+
+**Definition**: Keys that exist in the target locale but have empty string values.
+
+**Example**:
+
+```json fr.json
+{
+  "welcome": "Bienvenue",
+  "login": "",  // Key exists but empty
+  "signup": "S'inscrire"
+}
+```
+
+**Impact**: Empty strings may render as blank text in your UI, creating a poor user experience.
+
+**Priority**: 🔴 **High** - Worse than missing keys because they won't trigger fallbacks.
+
+<Warning>
+Untranslated keys (empty strings) are often worse than missing keys. Many i18n libraries will display empty strings instead of falling back to the source language, leaving users with blank UI elements.
+</Warning>
+
+### 3. Orphan Keys
+
+**Definition**: Keys that exist in the target locale but are NOT in the source locale.
+
+**Example**:
+
+```json fr.json
+{
+  "welcome": "Bienvenue",
+  "old_feature_label": "Ancienne fonctionnalité",  // Orphan
+  "deprecated_button": "Bouton obsolète"  // Orphan
+}
+```
+
+**Common causes**:
+- Refactored code where keys were renamed or removed
+- Copy-paste errors between locale files
+- Legacy features that were removed
+
+**Impact**: Orphan keys don't break functionality but bloat your locale files and make maintenance harder.
+
+**Priority**: 🟡 **Low** - Safe to remove, but not urgent.
+
+<Tip>
+Orphan keys are a good indicator of "translation debt." Cleaning them up regularly keeps your locale files maintainable.
+</Tip>
+
+## How to Prioritize Fixes
+
+<Steps>
+
+<Step title="Start with the worst coverage">
+  Reports sort locales by coverage (worst first). Focus on languages below 70% coverage.
+</Step>
+
+<Step title="Fix untranslated keys first">
+  Empty string values are the most damaging because they create blank UI elements.
+  
+  ```bash
+  # Priority order:
+  # 1. Untranslated keys (empty strings)
+  # 2. Missing keys (absent from file)
+  # 3. Orphan keys (cleanup)
+  ```
+</Step>
+
+<Step title="Use Lingo.dev for bulk translation">
+  For locales with many missing/untranslated keys, use the "Fix with Lingo.dev" button to automatically translate everything, then review.
+</Step>
+
+<Step title="Clean up orphans">
+  Once all locales are above 90% coverage, remove orphan keys to keep files clean.
+</Step>
+
+</Steps>
+
+## Common Patterns
+
+### Nested Key Flattening
+
+i18n Doctor flattens nested JSON structures with dot notation:
+
+<CodeGroup>
+```json Original Structure
+{
+  "auth": {
+    "login": {
+      "title": "Log In",
+      "button": "Submit"
+    }
+  }
+}
+```
+
+```json Flattened in Report
+{
+  "auth.login.title": "Log In",
+  "auth.login.button": "Submit"
+}
+```
+</CodeGroup>
+
+This makes it easy to identify exactly which keys are missing, even in deeply nested structures.
+
+### New Features = Coverage Drop
+
+If you recently added new UI strings to your source locale, all other locales will show:
+- Decreased coverage percentage
+- New missing keys in the report
+
+**This is expected!** Update your translations whenever you ship new features.
+
+### Partial Migrations
+
+If you see many missing keys across ALL locales, it might indicate:
+- A recent key rename or restructuring
+- Incomplete migration from an old i18n library
+- Multiple source files that aren't being detected
+
+<Info>
+If your report shows unexpected results, verify that i18n Doctor is detecting all your locale files. Check the scan results for the list of detected files.
+</Info>
+
+## Reading the Summary
+
+The summary section aggregates data across all locales:
+
+| Metric | Meaning |
+|--------|----------|
+| **Total Locales** | Number of target languages detected (excludes source locale) |
+| **Avg Coverage** | Mean coverage across all locales - your overall i18n health score |
+| **Total Missing** | Sum of all missing keys across all locales |
+| **Total Untranslated** | Sum of all empty string values across all locales |
+| **Total Orphan** | Sum of all unused keys across all locales |
+
+<Tip>
+**Average Coverage** is your most important metric. Aim for 85%+ to ensure a good multilingual user experience.
+</Tip>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="Supported Formats" icon="file-code" href="/guides/supported-formats">
+    Learn about JSON, YAML, and gettext file support
+  </Card>
+  <Card title="Lingo.dev Integration" icon="language" href="/guides/lingo-integration">
+    Use AI-powered translation to fix missing keys
+  </Card>
+</CardGroup>

@@ -1,0 +1,497 @@
+---
+title: Lingo.dev Integration
+description: Automatically translate missing keys with AI-powered translation from Lingo.dev
+---
+
+i18n Doctor is powered by [Lingo.dev](https://lingo.dev), an AI translation platform that provides high-quality, context-aware translations. This guide explains how the integration works and how to use it.
+
+## What is Lingo.dev?
+
+Lingo.dev is a developer-focused translation platform that combines:
+
+- **AI-powered translation** - Context-aware translations that understand your app's domain
+- **Developer tools** - CLI, SDK, and compiler for seamless integration
+- **Quality assurance** - Maintains formatting, variables, and technical terms
+- **CI/CD integration** - Automated translation workflows
+
+<Info>
+Lingo.dev is built for developers, not translators. It understands code patterns, variable interpolation, and technical terminology.
+</Info>
+
+## How i18n Doctor Uses Lingo.dev
+
+i18n Doctor leverages Lingo.dev in three ways:
+
+<CardGroup cols={3}>
+  <Card title="One-Click Fix" icon="magic-wand-sparkles">
+    Translate all missing/untranslated keys in your scan report
+  </Card>
+  <Card title="App Localization" icon="globe">
+    i18n Doctor itself is multilingual using Lingo.dev Compiler
+  </Card>
+  <Card title="CI/CD Pipeline" icon="gears">
+    GitHub Actions auto-translate on push
+  </Card>
+</CardGroup>
+
+### 1. One-Click Fix (Planned)
+
+When your scan report shows missing or untranslated keys, you'll be able to:
+
+<Steps>
+
+<Step title="Click 'Fix with Lingo.dev'">
+  A single button on your report page triggers automatic translation.
+</Step>
+
+<Step title="Review the diff">
+  See a side-by-side comparison of your current translations vs. the Lingo.dev-generated ones.
+</Step>
+
+<Step title="Download or create PR">
+  Download a ZIP of updated locale files, or automatically open a GitHub PR with the fixes.
+</Step>
+
+</Steps>
+
+<Note>
+**Planned Feature**: One-click fix is currently in development and will be available in a future release.
+</Note>
+
+### 2. i18n Doctor is Multilingual
+
+i18n Doctor "eats its own dog food" - the application itself is fully localized using Lingo.dev:
+
+```json i18n.json (Lingo.dev config)
+{
+  "locale": {
+    "source": "en",
+    "targets": ["es", "fr", "de", "ja", "zh"]
+  },
+  "files": {
+    "pattern": "messages/*.json"
+  }
+}
+```
+
+The Lingo.dev Compiler automatically:
+- Detects new strings added to `messages/en.json`
+- Translates them to all target locales
+- Updates locale files in the repo
+
+<Tip>
+Explore the i18n Doctor interface in different languages to see Lingo.dev's translation quality in action.
+</Tip>
+
+### 3. CI/CD Pipeline
+
+i18n Doctor uses a GitHub Action to automatically translate on every push:
+
+```yaml .github/workflows/i18n.yml
+name: Auto-translate with Lingo.dev
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'messages/en.json'
+
+jobs:
+  translate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: lingo-dev/action@v1
+        with:
+          api-key: ${{ secrets.LINGO_API_KEY }}
+      - name: Commit translations
+        run: |
+          git config user.name "Lingo.dev Bot"
+          git config user.email "bot@lingo.dev"
+          git add messages/
+          git commit -m "chore: auto-translate via Lingo.dev" || exit 0
+          git push
+```
+
+**Workflow**:
+1. Developer adds new strings to `messages/en.json`
+2. Pushes to main branch
+3. GitHub Action runs Lingo.dev CLI
+4. Translated files are committed automatically
+5. All locales stay in sync
+
+<Info>
+This is the same workflow i18n Doctor can set up for YOUR repository when using the one-click fix PR feature.
+</Info>
+
+## Translation Quality
+
+### Context-Aware Translation
+
+Lingo.dev understands technical context and preserves meaning:
+
+<CodeGroup>
+```json en.json (Source)
+{
+  "auth.login.button": "Log in",
+  "auth.logout.button": "Log out",
+  "dashboard.metrics.revenue": "Total Revenue: {amount}",
+  "errors.validation.email": "Please enter a valid email address"
+}
+```
+
+```json es.json (Lingo.dev translation)
+{
+  "auth.login.button": "Iniciar sesión",
+  "auth.logout.button": "Cerrar sesión",
+  "dashboard.metrics.revenue": "Ingresos Totales: {amount}",
+  "errors.validation.email": "Por favor, introduce una dirección de correo electrónico válida"
+}
+```
+</CodeGroup>
+
+Notice how:
+- **Button labels** are translated as imperative verbs ("Log in" → "Iniciar sesión")
+- **Variables** like `{amount}` are preserved exactly
+- **Technical terms** like "email" are handled appropriately for the target language
+- **Punctuation** and capitalization follow target locale conventions
+
+### Variable Preservation
+
+Lingo.dev automatically detects and preserves interpolation patterns:
+
+| Pattern | Example | Preserved |
+|---------|---------|----------|
+| Curly braces | `{name}`, `{count}` | ✓ |
+| Double curly | `{{username}}` | ✓ |
+| Percent | `%s`, `%d` | ✓ |
+| Dollar sign | `$t(key)` | ✓ |
+| ICU MessageFormat | `{count, plural, ...}` | ✓ |
+
+**Example**:
+
+```json en.json
+{
+  "greeting": "Hello, {name}!",
+  "items_count": "You have {count, plural, one {# item} other {# items}}",
+  "last_login": "Last login: {date}"
+}
+```
+
+```json fr.json (Lingo.dev)
+{
+  "greeting": "Bonjour, {name} !",
+  "items_count": "Vous avez {count, plural, one {# élément} other {# éléments}}",
+  "last_login": "Dernière connexion : {date}"
+}
+```
+
+<Warning>
+Manual translation tools often break variable syntax. Lingo.dev preserves all interpolation patterns, preventing runtime errors.
+</Warning>
+
+### Formatting Preservation
+
+Markdown, HTML, and special characters are maintained:
+
+<CodeGroup>
+```json en.json
+{
+  "welcome_html": "Welcome to <strong>i18n Doctor</strong>",
+  "terms_markdown": "By signing up, you agree to our [Terms of Service](https://example.com/terms)",
+  "list": "Features:\n- Fast scanning\n- One-click fix\n- CI/CD integration"
+}
+```
+
+```json es.json
+{
+  "welcome_html": "Bienvenido a <strong>i18n Doctor</strong>",
+  "terms_markdown": "Al registrarte, aceptas nuestros [Términos de Servicio](https://example.com/terms)",
+  "list": "Características:\n- Escaneo rápido\n- Corrección con un clic\n- Integración CI/CD"
+}
+```
+</CodeGroup>
+
+## Integration Methods
+
+### SDK Integration
+
+For runtime translation in Node.js applications:
+
+```typescript
+import { Lingo } from '@lingo-dev/sdk'
+
+const lingo = new Lingo({
+  apiKey: process.env.LINGO_API_KEY,
+  sourceLocale: 'en',
+  targetLocales: ['es', 'fr', 'de']
+})
+
+// Translate a single key
+const translated = await lingo.translate('welcome.message', {
+  sourceText: 'Welcome to our app',
+  targetLocale: 'es'
+})
+
+// Batch translate multiple keys
+const batch = await lingo.translateBatch({
+  'auth.login': 'Log in',
+  'auth.signup': 'Sign up',
+  'auth.logout': 'Log out'
+}, 'fr')
+```
+
+<Info>
+The SDK is what i18n Doctor uses under the hood for the one-click fix feature.
+</Info>
+
+### CLI Integration
+
+For build-time translation:
+
+```bash
+# Install Lingo.dev CLI
+npm install -g @lingo-dev/cli
+
+# Configure your project
+lingo init
+
+# Translate all target locales
+lingo translate
+
+# Watch for changes
+lingo watch
+```
+
+**Configuration** (`i18n.json`):
+
+```json
+{
+  "locale": {
+    "source": "en",
+    "targets": ["es", "fr", "de", "ja", "zh"]
+  },
+  "files": {
+    "pattern": "locales/**/*.json",
+    "ignore": ["node_modules/**"]
+  },
+  "api": {
+    "key": "${LINGO_API_KEY}"
+  }
+}
+```
+
+### Compiler Integration
+
+For framework-specific builds (Next.js, Vite, Webpack):
+
+```typescript next.config.ts
+import { withLingo } from '@lingo-dev/next'
+
+const config = {
+  // Your Next.js config
+}
+
+export default withLingo(config, {
+  sourceLocale: 'en',
+  targetLocales: ['es', 'fr', 'de']
+})
+```
+
+The compiler automatically:
+- Extracts translatable strings at build time
+- Translates missing keys
+- Injects translations into your app
+
+## CI/CD Integration
+
+### GitHub Actions (Recommended)
+
+Automatically translate on push:
+
+<Steps>
+
+<Step title="Create workflow file">
+  Add `.github/workflows/i18n-auto-translate.yml`:
+  
+  ```yaml
+  name: Auto-translate with Lingo.dev
+  
+  on:
+    push:
+      branches: [main, develop]
+      paths:
+        - 'locales/en.json'
+        - 'messages/en/*.json'
+  
+  jobs:
+    translate:
+      runs-on: ubuntu-latest
+      steps:
+        - uses: actions/checkout@v4
+        
+        - name: Setup Node.js
+          uses: actions/setup-node@v4
+          with:
+            node-version: '20'
+        
+        - name: Install Lingo.dev CLI
+          run: npm install -g @lingo-dev/cli
+        
+        - name: Run translation
+          env:
+            LINGO_API_KEY: ${{ secrets.LINGO_API_KEY }}
+          run: lingo translate
+        
+        - name: Commit translations
+          run: |
+            git config user.name "Lingo.dev Bot"
+            git config user.email "bot@lingo.dev"
+            git add locales/
+            git commit -m "chore: auto-translate via Lingo.dev [skip ci]" || exit 0
+            git push
+  ```
+</Step>
+
+<Step title="Add Lingo.dev API key">
+  In your GitHub repository settings:
+  1. Go to **Settings > Secrets and variables > Actions**
+  2. Click **New repository secret**
+  3. Name: `LINGO_API_KEY`
+  4. Value: Your Lingo.dev API key
+</Step>
+
+<Step title="Push source locale changes">
+  Now, whenever you update your source locale (e.g., `locales/en.json`), the workflow will:
+  - Detect the change
+  - Translate to all target locales
+  - Commit the updates automatically
+</Step>
+
+</Steps>
+
+<Tip>
+The `[skip ci]` in the commit message prevents infinite loops by skipping CI on automated commits.
+</Tip>
+
+### GitLab CI
+
+```yaml .gitlab-ci.yml
+translate:
+  stage: build
+  image: node:20
+  only:
+    changes:
+      - locales/en.json
+  script:
+    - npm install -g @lingo-dev/cli
+    - lingo translate
+    - |
+      git config user.name "Lingo.dev Bot"
+      git config user.email "bot@lingo.dev"
+      git add locales/
+      git commit -m "chore: auto-translate via Lingo.dev" || exit 0
+      git push https://oauth2:${CI_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git HEAD:${CI_COMMIT_REF_NAME}
+```
+
+## Best Practices
+
+<Steps>
+
+<Step title="Use Lingo.dev for bulk translation">
+  Don't manually translate hundreds of keys. Use Lingo.dev to get 95% of the way there, then review and refine.
+</Step>
+
+<Step title="Review AI translations for critical UI">
+  While Lingo.dev is highly accurate, always have a native speaker review:
+  - Marketing copy
+  - Legal terms
+  - Brand messaging
+  - Error messages (safety-critical apps)
+</Step>
+
+<Step title="Set up CI/CD early">
+  Automate translation in your pipeline from day one. This prevents translation debt from accumulating.
+</Step>
+
+<Step title="Keep source locale clean">
+  Lingo.dev works best with clear, well-written source strings. Avoid:
+  - Overly technical jargon
+  - Ambiguous abbreviations
+  - Concatenated sentences (use variables instead)
+</Step>
+
+</Steps>
+
+## Troubleshooting
+
+<Accordion title="Translations seem inaccurate">
+  **Solution**: Provide more context in your key names. Instead of:
+  
+  ```json
+  { "button": "Submit" }
+  ```
+  
+  Use:
+  
+  ```json
+  { "auth.login.submit_button": "Submit" }
+  ```
+  
+  The key name helps Lingo.dev understand the context.
+</Accordion>
+
+<Accordion title="Variables are broken in translations">
+  **Solution**: Ensure you're using consistent variable syntax. Lingo.dev supports:
+  - `{variable}`
+  - `{{variable}}`
+  - `%s`, `%d` (printf-style)
+  
+  Avoid mixing syntaxes in the same project.
+</Accordion>
+
+<Accordion title="CI/CD workflow not triggering">
+  **Solution**: Check that:
+  1. Your `paths` filter matches your source locale file
+  2. The `LINGO_API_KEY` secret is set correctly
+  3. The workflow has write permissions (Settings > Actions > General > Workflow permissions)
+</Accordion>
+
+<Accordion title="Rate limiting errors">
+  **Solution**: Lingo.dev has rate limits based on your plan. For large batches:
+  - Use `lingo translate --batch-size 50` to process in smaller chunks
+  - Add delays between API calls
+  - Upgrade your Lingo.dev plan for higher limits
+</Accordion>
+
+## Pricing & Limits
+
+Lingo.dev offers different tiers based on usage:
+
+| Plan | Keys/month | API Calls | CI/CD |
+|------|-----------|-----------|-------|
+| **Free** | 1,000 | 100/day | ✓ |
+| **Pro** | 50,000 | 5,000/day | ✓ |
+| **Enterprise** | Unlimited | Unlimited | ✓ |
+
+<Info>
+For detailed pricing and limits, visit [lingo.dev/pricing](https://lingo.dev/pricing).
+</Info>
+
+## Next Steps
+
+<CardGroup cols={2}>
+  <Card title="GitHub OAuth" icon="github" href="/guides/github-oauth">
+    Connect your GitHub account for private repo access
+  </Card>
+  <Card title="Understanding Reports" icon="chart-line" href="/guides/understanding-reports">
+    Learn how to interpret your scan results
+  </Card>
+</CardGroup>
+
+## Resources
+
+- [Lingo.dev Documentation](https://lingo.dev/docs)
+- [Lingo.dev SDK Reference](https://lingo.dev/docs/sdk)
+- [Lingo.dev CLI Guide](https://lingo.dev/docs/cli)
+- [Lingo.dev GitHub Action](https://github.com/lingo-dev/action)

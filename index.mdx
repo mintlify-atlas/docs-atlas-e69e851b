@@ -1,97 +1,166 @@
 ---
-title: "Introduction"
-description: "Welcome to the new home for your documentation"
+title: "Welcome to i18n Doctor"
+description: "Scan and fix broken translations in any GitHub repository with one-click automation"
 ---
 
-## Setting up
+<img
+  className="block"
+  src="https://media.brand.dev/13262c4c-3821-4835-be63-c8a7f080d85c.svg"
+  alt="i18n Doctor"
+  style={{ width: '200px', margin: '0 auto 2rem' }}
+/>
 
-Get your documentation site up and running in minutes.
+# Scan & Fix Broken Translations
 
-<Card
-  title="Start here"
-  icon="rocket"
-  href="/quickstart"
-  horizontal
->
-  Follow our three step quickstart guide.
-</Card>
+**i18n Doctor** analyzes any public GitHub repository for translation issues and helps you fix them instantly using Lingo.dev. Never ship broken i18n again.
 
-## Make it yours
-
-Design a docs site that looks great and empowers your users.
-
-<Columns cols={2}>
+<CardGroup cols={2}>
   <Card
-    title="Edit locally"
-    icon="pen-to-square"
-    href="/development"
+    title="Quick Start"
+    icon="rocket"
+    href="/quickstart"
   >
-    Edit your docs locally and preview them in real time.
+    Get scanning in under 2 minutes
   </Card>
   <Card
-    title="Customize your site"
-    icon="palette"
-    href="/essentials/settings"
+    title="View Demo"
+    icon="play"
+    href="https://i18n.doctor"
   >
-    Customize the design and colors of your site to match your brand.
+    Try the live application
   </Card>
-    <Card
-    title="Set up navigation"
-    icon="map"
-    href="/essentials/navigation"
+</CardGroup>
+
+## What You Get
+
+<CardGroup cols={3}>
+  <Card
+    title="Auto-Detection"
+    icon="radar"
   >
-    Organize your docs to help users find what they need and succeed with your product.
+    Automatically finds locale files in JSON, YAML, or .po formats across common i18n directory patterns
   </Card>
   <Card
-    title="API documentation"
-    icon="terminal"
-    href="/api-reference/introduction"
+    title="Health Reports"
+    icon="chart-line"
   >
-    Auto-generate API documentation from OpenAPI specifications.
-  </Card>
-</Columns>
-
-## Create beautiful pages
-
-Everything you need to create world-class documentation.
-
-<Columns cols={2}>
-  <Card
-    title="Write with MDX"
-    icon="pen-fancy"
-    href="/essentials/markdown"
-  >
-    Use MDX to style your docs pages.
+    Visual breakdown of coverage per locale with missing, untranslated, and orphan key detection
   </Card>
   <Card
-    title="Code samples"
+    title="One-Click Fix"
+    icon="wand-magic-sparkles"
+  >
+    Translate all gaps instantly with Lingo.dev and generate downloadable fixes or GitHub PRs
+  </Card>
+</CardGroup>
+
+## Key Features
+
+Developers ship apps with broken i18n all the time — new UI strings go untranslated, some locales have 90% coverage while others sit at 40%, and unused keys pile up silently. **i18n Doctor** solves this.
+
+<CardGroup cols={2}>
+  <Card
+    title="Repository Scanner"
+    icon="magnifying-glass"
+    href="/features/scanning"
+  >
+    Auto-detects translation files in common patterns like `locales/`, `i18n/`, `public/locales/`
+  </Card>
+  <Card
+    title="Localization Health Dashboard"
+    icon="heart-pulse"
+    href="/features/health-reports"
+  >
+    Per-locale coverage %, visual progress bars, summary cards for total keys, missing, untranslated, orphan
+  </Card>
+  <Card
+    title="Shareable Report Cards"
+    icon="share-nodes"
+    href="/features/shareable-reports"
+  >
+    Every scan generates a unique URL with social-share friendly summary
+  </Card>
+  <Card
+    title="Lingo.dev Integration"
+    icon="language"
+    href="/guides/lingo-integration"
+  >
+    One-click translation of all missing/empty strings via Lingo.dev SDK
+  </Card>
+</CardGroup>
+
+## Use Cases
+
+<AccordionGroup>
+  <Accordion title="Pre-Release Audits" icon="clipboard-check">
+    Scan your repository before shipping to catch missing translations across all locales. Get a comprehensive health report showing exactly which keys need attention.
+  </Accordion>
+  <Accordion title="CI/CD Integration" icon="rotate">
+    Run automated scans in your deployment pipeline to prevent broken translations from reaching production. Integrate with GitHub Actions for continuous monitoring.
+  </Accordion>
+  <Accordion title="Localization Health Monitoring" icon="chart-mixed">
+    Track translation coverage over time across multiple locales. Identify which languages need attention and maintain consistent i18n quality.
+  </Accordion>
+  <Accordion title="Open Source Contributions" icon="code-branch">
+    Analyze public repositories to find i18n issues and contribute fixes. Perfect for discovering contribution opportunities in open source projects.
+  </Accordion>
+</AccordionGroup>
+
+## How It Works
+
+<Steps>
+  <Step title="Enter Repository URL">
+    Paste any GitHub repository URL or use the `owner/repo` format
+  </Step>
+  <Step title="Auto-Detection">
+    i18n Doctor scans the repository tree and auto-detects translation files in common patterns
+  </Step>
+  <Step title="Analysis">
+    Compares all target locales against the source locale to identify missing keys, untranslated strings, and orphan keys
+  </Step>
+  <Step title="Health Report">
+    View a comprehensive dashboard with per-locale coverage stats and expandable issue lists
+  </Step>
+  <Step title="One-Click Fix">
+    Use Lingo.dev to translate all gaps and download fixed files or create a GitHub PR
+  </Step>
+</Steps>
+
+## Supported Translation Formats
+
+<CardGroup cols={3}>
+  <Card icon="brackets-curly" title="JSON">
+    Flat or nested JSON translation files
+  </Card>
+  <Card icon="code" title="YAML">
+    YAML format translation files
+  </Card>
+  <Card icon="file-code" title="gettext (.po)">
+    GNU gettext portable object files
+  </Card>
+</CardGroup>
+
+## Get Started
+
+<CardGroup cols={2}>
+  <Card
+    title="Quickstart Guide"
+    icon="bolt"
+    href="/quickstart"
+  >
+    Run your first scan in 2 minutes
+  </Card>
+  <Card
+    title="API Reference"
     icon="code"
-    href="/essentials/code"
+    href="/api/scan"
   >
-    Add sample code to demonstrate how to use your product.
+    Integrate scanning into your workflow
   </Card>
-  <Card
-    title="Images"
-    icon="image"
-    href="/essentials/images"
-  >
-    Display images and other media.
-  </Card>
-  <Card
-    title="Reusable snippets"
-    icon="recycle"
-    href="/essentials/reusable-snippets"
-  >
-    Write once and reuse across your docs.
-  </Card>
-</Columns>
+</CardGroup>
 
-## Need inspiration?
+---
 
-<Card
-  title="See complete examples"
-  icon="stars"
-  href="https://mintlify.com/customers"
->
-  Browse our showcase of exceptional documentation sites.
-</Card>
+<Note>
+Built for the [Lingo.dev Multilingual Hackathon #3](https://lingo.dev) by [@lokendratwt](https://x.com/lokendratwt)
+</Note>

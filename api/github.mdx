@@ -1,0 +1,408 @@
+---
+title: "GitHub"
+description: "GitHub API helpers for fetching repository metadata, file trees, and file contents"
+icon: "github"
+---
+
+## Overview
+
+The `github` module provides helpers for interacting with the GitHub REST API to fetch repository metadata, file trees, and file contents. It supports both public repositories (with limited rate limits) and authenticated requests using a GitHub token.
+
+**Location**: `apps/www/lib/github.ts`
+
+### Features
+
+- Parse GitHub repository URLs in multiple formats
+- Fetch repository metadata (default branch, description, stars)
+- Retrieve complete file trees recursively
+- Download raw file contents
+- Automatic rate limit handling with optional token authentication
+
+### Authentication
+
+Set the `GITHUB_TOKEN` environment variable to increase rate limits from 60 to 5,000 requests per hour.
+
+```bash
+GITHUB_TOKEN=ghp_your_token_here
+```
+
+---
+
+## Functions
+
+### parseRepoUrl
+
+Parses a GitHub repository URL or short form into structured components.
+
+```typescript
+function parseRepoUrl(input: string): {
+  owner: string
+  repo: string
+  branch?: string
+}
+```
+
+<ParamField path="input" type="string" required>
+  The repository URL or short form. Accepts:
+  - Full URL: `https://github.com/owner/repo`
+  - Full URL with branch: `https://github.com/owner/repo/tree/main`
+  - Short form: `owner/repo`
+  - Git URL: `https://github.com/owner/repo.git`
+</ParamField>
+
+<ResponseField name="owner" type="string">
+  The repository owner (username or organization)
+</ResponseField>
+
+<ResponseField name="repo" type="string">
+  The repository name
+</ResponseField>
+
+<ResponseField name="branch" type="string | undefined">
+  The branch name (only present if specified in URL)
+</ResponseField>
+
+#### Example
+
+```typescript
+import { parseRepoUrl } from "@/lib/github"
+
+// Full URL
+const result1 = parseRepoUrl("https://github.com/facebook/react")
+// { owner: "facebook", repo: "react" }
+
+// Full URL with branch
+const result2 = parseRepoUrl("https://github.com/vercel/next.js/tree/canary")
+// { owner: "vercel", repo: "next.js", branch: "canary" }
+
+// Short form
+const result3 = parseRepoUrl("vuejs/vue")
+// { owner: "vuejs", repo: "vue" }
+```
+
+#### Errors
+
+Throws an error if the input format is invalid:
+
+```typescript
+// ❌ Throws: "Invalid repo URL. Expected https://github.com/owner/repo or owner/repo"
+parseRepoUrl("invalid-input")
+```
+
+---
+
+### getRepoInfo
+
+Fetches repository metadata from the GitHub API. Validates that the repository exists and is accessible.
+
+```typescript
+function getRepoInfo(
+  owner: string,
+  repo: string
+): Promise<RepoInfo>
+```
+
+<ParamField path="owner" type="string" required>
+  The repository owner (username or organization)
+</ParamField>
+
+<ParamField path="repo" type="string" required>
+  The repository name
+</ParamField>
+
+<ResponseField name="owner" type="string">
+  The repository owner
+</ResponseField>
+
+<ResponseField name="repo" type="string">
+  The repository name
+</ResponseField>
+
+<ResponseField name="defaultBranch" type="string">
+  The default branch name (e.g., "main" or "master")
+</ResponseField>
+
+<ResponseField name="description" type="string | null">
+  The repository description (null if not set)
+</ResponseField>
+
+<ResponseField name="stars" type="number">
+  The number of stars (stargazers_count)
+</ResponseField>
+
+#### Example
+
+```typescript
+import { getRepoInfo } from "@/lib/github"
+
+const info = await getRepoInfo("vercel", "next.js")
+console.log(info)
+// {
+//   owner: "vercel",
+//   repo: "next.js",
+//   defaultBranch: "canary",
+//   description: "The React Framework",
+//   stars: 120000
+// }
+```
+
+#### Errors
+
+<Expandable title="Error Handling">
+
+```typescript
+try {
+  const info = await getRepoInfo("owner", "repo")
+} catch (error) {
+  // 404: "Repository not found"
+  // 403: "GitHub API rate limit exceeded"
+  // Other: "GitHub API error: {status}"
+}
+```
+
+</Expandable>
+
+---
+
+### getRepoTree
+
+Fetches the complete file tree of a repository using the Git Trees API. Returns only files (blobs), not directories.
+
+```typescript
+function getRepoTree(
+  owner: string,
+  repo: string,
+  branch: string
+): Promise<TreeNode[]>
+```
+
+<ParamField path="owner" type="string" required>
+  The repository owner
+</ParamField>
+
+<ParamField path="repo" type="string" required>
+  The repository name
+</ParamField>
+
+<ParamField path="branch" type="string" required>
+  The branch name (e.g., "main", "master", "canary")
+</ParamField>
+
+<ResponseField name="TreeNode[]" type="array">
+  Array of file nodes in the repository tree
+
+  <Expandable title="TreeNode properties">
+    <ResponseField name="path" type="string">
+      The file path relative to repository root (e.g., "src/index.ts")
+    </ResponseField>
+
+    <ResponseField name="type" type="'blob' | 'tree'">
+      The node type (always "blob" in results, directories are filtered out)
+    </ResponseField>
+
+    <ResponseField name="size" type="number | undefined">
+      The file size in bytes (if available)
+    </ResponseField>
+  </Expandable>
+</ResponseField>
+
+#### Example
+
+```typescript
+import { getRepoTree } from "@/lib/github"
+
+const tree = await getRepoTree("vercel", "next.js", "canary")
+
+// Filter for TypeScript files
+const tsFiles = tree.filter(node => node.path.endsWith(".ts"))
+
+// Find all locale files
+const localeFiles = tree.filter(node => 
+  node.path.includes("/locales/") && node.path.endsWith(".json")
+)
+```
+
+<Tip>
+The API uses `recursive=1` to fetch the entire tree in one request. For repositories with more than 100,000 entries, the tree may be truncated. A warning is logged to the console in this case.
+</Tip>
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:27`:
+
+```typescript
+// Fetch file tree
+const tree = await getRepoTree(owner, repo, branch)
+
+// Detect locale files
+const groups = detectLocaleFiles(tree)
+```
+
+---
+
+### getFileContent
+
+Fetches the raw text content of a single file from the repository.
+
+```typescript
+function getFileContent(
+  owner: string,
+  repo: string,
+  branch: string,
+  path: string
+): Promise<string>
+```
+
+<ParamField path="owner" type="string" required>
+  The repository owner
+</ParamField>
+
+<ParamField path="repo" type="string" required>
+  The repository name
+</ParamField>
+
+<ParamField path="branch" type="string" required>
+  The branch name
+</ParamField>
+
+<ParamField path="path" type="string" required>
+  The file path relative to repository root
+</ParamField>
+
+<ResponseField name="content" type="string">
+  The raw text content of the file
+</ResponseField>
+
+#### Example
+
+```typescript
+import { getFileContent } from "@/lib/github"
+
+const content = await getFileContent(
+  "vercel",
+  "next.js",
+  "canary",
+  "package.json"
+)
+
+const pkg = JSON.parse(content)
+console.log(pkg.version)
+```
+
+#### Usage in Scan API
+
+From `app/api/scan/route.ts:52`:
+
+```typescript
+const fetchPromises = Object.entries(group.files).flatMap(
+  ([locale, filePaths]) =>
+    filePaths.map(async (filePath) => {
+      const content = await getFileContent(owner, repo, branch, filePath)
+      const keys = parseLocaleFile(content, filePath)
+      if (!keyMaps[locale]) keyMaps[locale] = {}
+      Object.assign(keyMaps[locale], keys)
+    })
+)
+await Promise.all(fetchPromises)
+```
+
+<Note>
+Uses `raw.githubusercontent.com` for direct file access, which is faster than the Contents API and doesn't require base64 decoding.
+</Note>
+
+---
+
+## Types
+
+### RepoInfo
+
+Repository metadata returned by `getRepoInfo`.
+
+```typescript
+interface RepoInfo {
+  owner: string
+  repo: string
+  defaultBranch: string
+  description: string | null
+  stars: number
+}
+```
+
+### TreeNode
+
+A single file node in the repository tree.
+
+```typescript
+interface TreeNode {
+  path: string
+  type: "blob" | "tree"
+  size?: number
+}
+```
+
+---
+
+## Rate Limits
+
+<CardGroup cols={2}>
+  <Card title="Without Token" icon="hourglass">
+    60 requests per hour per IP address
+  </Card>
+  <Card title="With Token" icon="bolt">
+    5,000 requests per hour per token
+  </Card>
+</CardGroup>
+
+### Handling Rate Limits
+
+```typescript
+import { getRepoInfo } from "@/lib/github"
+
+try {
+  const info = await getRepoInfo("owner", "repo")
+} catch (error) {
+  if (error.message.includes("rate limit")) {
+    // Handle rate limit - retry with exponential backoff
+    // or prompt user to add GITHUB_TOKEN
+  }
+}
+```
+
+---
+
+## Complete Example
+
+```typescript
+import { 
+  parseRepoUrl, 
+  getRepoInfo, 
+  getRepoTree, 
+  getFileContent 
+} from "@/lib/github"
+
+async function analyzeRepository(url: string) {
+  // 1. Parse URL
+  const { owner, repo, branch: urlBranch } = parseRepoUrl(url)
+  
+  // 2. Get repo info
+  const info = await getRepoInfo(owner, repo)
+  const branch = urlBranch ?? info.defaultBranch
+  
+  console.log(`📦 ${owner}/${repo} (⭐ ${info.stars})`)
+  console.log(`📝 ${info.description}`)
+  
+  // 3. Fetch file tree
+  const tree = await getRepoTree(owner, repo, branch)
+  console.log(`📁 ${tree.length} files in repository`)
+  
+  // 4. Download specific files
+  const packageJsonPath = tree.find(n => n.path === "package.json")?.path
+  if (packageJsonPath) {
+    const content = await getFileContent(owner, repo, branch, packageJsonPath)
+    const pkg = JSON.parse(content)
+    console.log(`📦 Package: ${pkg.name}@${pkg.version}`)
+  }
+}
+
+analyzeRepository("https://github.com/vercel/next.js")
+```
